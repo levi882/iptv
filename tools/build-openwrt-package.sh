@@ -69,7 +69,46 @@ rm -f "$SDK/tmp/info/.files-packageinfo.stamp"
 
 (cd "$SDK" && ./scripts/feeds install -p luci luci-base)
 
+# config.buildinfo describes the release buildbot and its firmware package
+# set. Normalize the final config only after our packages and the LuCI
+# dependency metadata exist, then select exactly the artifacts this SDK
+# invocation should build. make defconfig will restore their dependency graph.
+set_config() {
+	option="$1"
+	value="$2"
+
+	sed -i \
+		-e "/^CONFIG_${option}=/d" \
+		-e "/^# CONFIG_${option} is not set$/d" \
+		"$SDK/.config"
+
+	if [ "$value" = y ]; then
+		printf 'CONFIG_%s=y\n' "$option" >> "$SDK/.config"
+	else
+		printf '# CONFIG_%s is not set\n' "$option" >> "$SDK/.config"
+	fi
+}
+
+sed -i \
+	-e '/^CONFIG_PACKAGE_/d' \
+	-e '/^# CONFIG_PACKAGE_.* is not set$/d' \
+	"$SDK/.config"
+
+set_config ALL n
+set_config ALL_NONSHARED n
+set_config ALL_KMODS n
+set_config PACKAGE_liblucihttp-lua n
+set_config PACKAGE_iptv-refresh y
+set_config PACKAGE_luci-app-iptv-refresh y
+set_config PACKAGE_luci-i18n-iptv-refresh-zh-cn y
+
 make -C "$SDK" defconfig
+
+if grep -q '^CONFIG_PACKAGE_liblucihttp-lua=[ym]$' "$SDK/.config"; then
+	echo "Unexpected liblucihttp-lua selection in the targeted SDK config" >&2
+	exit 1
+fi
+
 make -C "$SDK" package/iptv-refresh/compile V=s
 make -C "$SDK" package/luci-app-iptv-refresh/compile V=s
 find "$SDK/bin/packages" -type f \( -name 'iptv-refresh*.apk' -o -name 'iptv-refresh*.ipk' -o -name 'luci-app-iptv-refresh*.apk' -o -name 'luci-app-iptv-refresh*.ipk' -o -name 'luci-i18n-iptv-refresh*.apk' -o -name 'luci-i18n-iptv-refresh*.ipk' \) -print

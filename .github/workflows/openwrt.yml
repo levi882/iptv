@@ -48,14 +48,6 @@ jobs:
         shell: bash
         run: |
           curl --fail --location --retry 3 "$OPENWRT_BASE_URL/config.buildinfo" --output "$SDK_DIR/.config"
-          # The release buildbot config selects every target package once its
-          # feed is installed. A targeted SDK build must select only this
-          # package's dependency graph; otherwise optional sibling packages
-          # (such as liblucihttp-lua) are compiled without their prerequisites.
-          sed -i \
-            -e 's/^CONFIG_ALL_NONSHARED=y$/# CONFIG_ALL_NONSHARED is not set/' \
-            -e 's/^CONFIG_ALL_KMODS=y$/# CONFIG_ALL_KMODS is not set/' \
-            "$SDK_DIR/.config"
           cd "$SDK_DIR"
           ./scripts/feeds update packages luci
           ./scripts/feeds install golang
