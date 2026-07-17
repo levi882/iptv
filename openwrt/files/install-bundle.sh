@@ -1,0 +1,64 @@
+#!/bin/sh
+set -eu
+
+SELF_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+
+if [ "$(id -u)" -ne 0 ]; then
+	echo "ERROR: run this installer as root" >&2
+	exit 1
+fi
+
+[ -f "$SELF_DIR/iptv-refresh" ] || {
+	echo "ERROR: iptv-refresh binary is missing from $SELF_DIR" >&2
+	exit 1
+}
+
+was_running=0
+if [ -x /etc/init.d/iptv-refresh ] && /etc/init.d/iptv-refresh running >/dev/null 2>&1; then
+	was_running=1
+	/etc/init.d/iptv-refresh stop
+fi
+
+mkdir -p /usr/bin /etc/init.d /etc/config /etc/iptv-refresh
+cp "$SELF_DIR/iptv-refresh" /usr/bin/.iptv-refresh.new
+chmod 0755 /usr/bin/.iptv-refresh.new
+mv -f /usr/bin/.iptv-refresh.new /usr/bin/iptv-refresh
+
+cp "$SELF_DIR/iptv-refresh.init" /etc/init.d/.iptv-refresh.new
+chmod 0755 /etc/init.d/.iptv-refresh.new
+mv -f /etc/init.d/.iptv-refresh.new /etc/init.d/iptv-refresh
+
+if [ ! -e /etc/config/iptv-refresh ]; then
+	cp "$SELF_DIR/iptv-refresh.uci" /etc/config/iptv-refresh
+	chmod 0600 /etc/config/iptv-refresh
+fi
+
+if [ ! -e /etc/iptv-refresh/hb.env ]; then
+	cp "$SELF_DIR/hb.env" /etc/iptv-refresh/hb.env
+	chmod 0600 /etc/iptv-refresh/hb.env
+fi
+
+token=""
+if [ -r /etc/iptv-refresh/token ]; then
+	IFS= read -r token < /etc/iptv-refresh/token || true
+fi
+if [ -z "$token" ] || [ "$token" = "change-me" ]; then
+	dd if=/dev/urandom bs=32 count=1 2>/dev/null \
+		| od -An -tx1 \
+		| tr -d ' \n' > /etc/iptv-refresh/token
+fi
+unset token
+chmod 0600 /etc/iptv-refresh/token
+
+if [ "$was_running" -eq 1 ]; then
+	/etc/init.d/iptv-refresh start
+fi
+
+echo "Installed $(/usr/bin/iptv-refresh version)"
+echo "Configuration: /etc/config/iptv-refresh"
+echo "Environment:   /etc/iptv-refresh/hb.env"
+if [ "$was_running" -eq 0 ]; then
+	echo "After checking the configuration, run:"
+	echo "  /etc/init.d/iptv-refresh enable"
+	echo "  /etc/init.d/iptv-refresh start"
+fi

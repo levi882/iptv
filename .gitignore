@@ -1,0 +1,42 @@
+# Local secrets and machine-specific configuration
+/.env
+/.env.*
+!/.env.example
+/config/local/
+/frameset_builder*.jsp
+*.creds.env
+*.pcap
+*.pcapng
+
+# Local runtime data retained outside the Go source tree
+/scripts/
+
+# Runtime logs and generated data
+/output/
+*.log
+*.pid
+
+# Downloaded caches and refreshed EPG/logo data
+/cache/
+
+# Go build artifacts
+/dist/
+/build/
+/.tmp-go-cache/
+coverage.out
+coverage.html
+*.coverprofile
+*.prof
+*.pprof
+*.exe
+*.test
+
+# Downloaded OpenWrt SDKs
+/openwrt-sdk-*/
+/openwrt-sdk-*.tar.*
+
+# OS/editor noise
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

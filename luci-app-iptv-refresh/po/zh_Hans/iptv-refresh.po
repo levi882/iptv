@@ -1,0 +1,446 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-iptv-refresh 0.1.0\n"
+"PO-Revision-Date: 2026-07-17 00:00+0800\n"
+"Last-Translator: IPTV Refresh maintainers\n"
+"Language-Team: Simplified Chinese\n"
+"Language: zh_Hans\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "API token file"
+msgstr "API 令牌文件"
+
+msgid "Access control"
+msgstr "访问控制"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Allowed client IP addresses"
+msgstr "允许的客户端 IP 地址"
+
+msgid "Append"
+msgstr "追加"
+
+msgid "Append provider FCC address and type to rtp2httpd URLs."
+msgstr "将运营商的 FCC 地址和类型追加到 rtp2httpd URL。"
+
+msgid "Append quality tags"
+msgstr "追加画质标签"
+
+msgid "Automatic"
+msgstr "自动"
+
+msgid "Backend version"
+msgstr "后端版本"
+
+msgid "Cache logos locally"
+msgstr "在本地缓存台标"
+
+msgid "Capture dump path"
+msgstr "抓包转储路径"
+
+msgid "Captured credentials file"
+msgstr "已捕获凭据文件"
+
+msgid "Catch-up playseek template"
+msgstr "回看 playseek 模板"
+
+msgid "Catch-up proxy host"
+msgstr "回看代理主机"
+
+msgid "Catch-up seek offset"
+msgstr "回看定位偏移"
+
+msgid "Changes are applied through UCI. Service-related changes automatically reload the procd service."
+msgstr "更改通过 UCI 应用。与服务相关的更改会自动重新加载 procd 服务。"
+
+msgid "Channel sorting"
+msgstr "频道排序"
+
+msgid "Channels"
+msgstr "频道数"
+
+msgid "Choose which provider stream URL is preferred."
+msgstr "选择优先使用哪种运营商直播流 URL。"
+
+msgid "City code"
+msgstr "城市代码"
+
+msgid "Command failed"
+msgstr "命令执行失败"
+
+msgid "Credential capture timeout"
+msgstr "凭据捕获超时"
+
+msgid "Current hb.env"
+msgstr "当前 hb.env"
+
+msgid "Data root"
+msgstr "数据根目录"
+
+msgid "Displayed channel name"
+msgstr "显示的频道名称"
+
+msgid "Download playlist"
+msgstr "下载播放列表"
+
+msgid "Drop"
+msgstr "丢弃"
+
+msgid "EAS IP"
+msgstr "EAS IP"
+
+msgid "EPG & logos"
+msgstr "EPG 与台标"
+
+msgid "EPG cache file"
+msgstr "EPG 缓存文件"
+
+msgid "EPG comparison source"
+msgstr "EPG 比对源"
+
+msgid "EPG download URL"
+msgstr "EPG 下载 URL"
+
+msgid "EPG matches"
+msgstr "EPG 匹配数"
+
+msgid "EPG name"
+msgstr "EPG 名称"
+
+msgid "Enable service"
+msgstr "启用服务"
+
+msgid "Environment"
+msgstr "环境配置"
+
+msgid "Environment file"
+msgstr "环境配置文件"
+
+msgid "Environment saved and service restarted."
+msgstr "环境配置已保存，服务已重启。"
+
+msgid "Environment saved."
+msgstr "环境配置已保存。"
+
+msgid "FCC type"
+msgstr "FCC 类型"
+
+msgid "Finished at"
+msgstr "完成时间"
+
+msgid "Forward FCC parameters"
+msgstr "转发 FCC 参数"
+
+msgid "General"
+msgstr "常规"
+
+msgid "Grant access to the IPTV Refresh LuCI application"
+msgstr "授予 IPTV 刷新 LuCI 应用访问权限"
+
+msgid "HD tag"
+msgstr "高清标签"
+
+msgid "Host and port without a scheme, for example 10.1.1.1:5140."
+msgstr "不含协议的主机和端口，例如 10.1.1.1:5140。"
+
+msgid "IPTV Refresh"
+msgstr "IPTV 刷新"
+
+msgid "IPTV Refresh environment"
+msgstr "IPTV 刷新环境配置"
+
+msgid "IPTV Refresh settings"
+msgstr "IPTV 刷新设置"
+
+msgid "IPTV interface"
+msgstr "IPTV 接口"
+
+msgid "Idle"
+msgstr "空闲"
+
+msgid "Infer group-title values from the 51zmt reference playlist."
+msgstr "根据 51zmt 参考播放列表推断 group-title 值。"
+
+msgid "Interface used for STB credential capture and provider access."
+msgstr "用于捕获机顶盒凭据及访问运营商网络的接口。"
+
+msgid "Interface used for provider HTTP requests; use none to follow the routing table."
+msgstr "运营商 HTTP 请求所用接口；设为 none 时使用路由表。"
+
+msgid "Keep original names"
+msgstr "保留原名称"
+
+msgid "Last error"
+msgstr "最近错误"
+
+msgid "Direct IGMP HTTP prefix"
+msgstr "直接 IGMP HTTP 前缀"
+
+msgid "Listen address"
+msgstr "监听地址"
+
+msgid "Listen port"
+msgstr "监听端口"
+
+msgid "Local logo URL base"
+msgstr "本地台标 URL 基址"
+
+msgid "Local logo directory"
+msgstr "本地台标目录"
+
+msgid "Logo URL base"
+msgstr "台标 URL 基址"
+
+msgid "Logo download timeout"
+msgstr "台标下载超时"
+
+msgid "Logo match threshold"
+msgstr "台标匹配阈值"
+
+msgid "Logo matches"
+msgstr "台标匹配数"
+
+msgid "Logo matching playlist"
+msgstr "台标匹配播放列表"
+
+msgid "Logo overrides file"
+msgstr "台标覆盖文件"
+
+msgid "M3U catch-up type"
+msgstr "M3U 回看类型"
+
+msgid "M3U x-tvg-url"
+msgstr "M3U x-tvg-url"
+
+msgid "Manage the local IPTV playlist refresh service. The API token remains on the router and is never sent to this browser."
+msgstr "管理本地 IPTV 播放列表刷新服务。API 令牌保留在路由器上，绝不会发送到此浏览器。"
+
+msgid "Multicast endpoint"
+msgstr "组播端点"
+
+msgid "Must match the R2H Token configured in luci-app-rtp2httpd."
+msgstr "必须与 luci-app-rtp2httpd 中配置的 R2H Token 一致。"
+
+msgid "Network ID"
+msgstr "网络 ID"
+
+msgid "No matching log entries."
+msgstr "没有匹配的日志记录。"
+
+msgid "Only these source addresses may call status, refresh, and playlist endpoints. Keep loopback entries for LuCI integration."
+msgstr "仅允许这些源地址调用状态、刷新和播放列表端点。请保留环回地址，以便 LuCI 正常集成。"
+
+msgid "Optional direct HTTP prefix used instead of rtp2httpd URL generation."
+msgstr "可选的直接 HTTP 前缀，用于替代 rtp2httpd URL 生成。"
+
+msgid "Optional local file or URL used for channel-name matching."
+msgstr "可选的本地文件或 URL，用于匹配频道名称。"
+
+msgid "Optional local or remote playlist used as ordering reference."
+msgstr "可选的本地或远程播放列表，用作排序参考。"
+
+msgid "Optional playlist with rtp2httpd snapshot URLs."
+msgstr "可选的播放列表，其中包含 rtp2httpd 快照 URL。"
+
+msgid "Order reference"
+msgstr "排序参考"
+
+msgid "Output & naming"
+msgstr "输出与命名"
+
+msgid "Output format"
+msgstr "输出格式"
+
+msgid "Overview"
+msgstr "概览"
+
+msgid "Paths"
+msgstr "路径"
+
+msgid "Platform origin"
+msgstr "平台来源"
+
+msgid "Playlist output path"
+msgstr "播放列表输出路径"
+
+msgid "Playlist path"
+msgstr "播放列表路径"
+
+msgid "Playlist refresh started."
+msgstr "已开始刷新播放列表。"
+
+msgid "Provider & capture"
+msgstr "运营商与捕获"
+
+msgid "Provider EPG entry"
+msgstr "运营商 EPG 入口"
+
+msgid "Provider EPG fallbacks"
+msgstr "运营商 EPG 备用地址"
+
+msgid "Provider HTTP timeout"
+msgstr "运营商 HTTP 超时"
+
+msgid "Provider User-Agent"
+msgstr "运营商 User-Agent"
+
+msgid "Provider bind interface"
+msgstr "运营商绑定接口"
+
+msgid "Provider name"
+msgstr "运营商名称"
+
+msgid "Provider order"
+msgstr "运营商顺序"
+
+msgid "Provider source IP"
+msgstr "运营商源 IP"
+
+msgid "Proxy RTSP streams"
+msgstr "代理 RTSP 直播流"
+
+msgid "Published EPG file"
+msgstr "已发布 EPG 文件"
+
+msgid "Quality suffix handling"
+msgstr "画质后缀处理"
+
+msgid "R2H token"
+msgstr "R2H 令牌"
+
+msgid "Raw preview"
+msgstr "原始预览"
+
+msgid "Read-only preview. Known settings are edited in the tabs above; unknown variables and comments are preserved when saving."
+msgstr "只读预览。已知设置请在上方标签页编辑；保存时会保留未知变量和注释。"
+
+msgid "Recent log"
+msgstr "最近日志"
+
+msgid "Refresh playlist"
+msgstr "刷新播放列表"
+
+msgid "Refresh state"
+msgstr "刷新状态"
+
+msgid "Refreshing"
+msgstr "正在刷新"
+
+msgid "Reload log"
+msgstr "重新加载日志"
+
+msgid "Replace provider names with EPG names"
+msgstr "用 EPG 名称替换运营商名称"
+
+msgid "Restart"
+msgstr "重启"
+
+msgid "Rewrite RTSP streams through the rtp2httpd /rtsp/ endpoint."
+msgstr "通过 rtp2httpd 的 /rtsp/ 端点改写 RTSP 直播流。"
+
+msgid "Running"
+msgstr "运行中"
+
+msgid "SD tag"
+msgstr "标清标签"
+
+msgid "Seconds added to the rtp2httpd catch-up request."
+msgstr "添加到 rtp2httpd 回看请求中的秒数。"
+
+msgid "Seconds to wait for STB traffic."
+msgstr "等待机顶盒流量的秒数。"
+
+msgid "Seconds."
+msgstr "秒。"
+
+msgid "Separate multiple URLs with commas, semicolons, or spaces."
+msgstr "多个 URL 请用逗号、分号或空格分隔。"
+
+msgid "Service"
+msgstr "服务"
+
+msgid "Service action completed: %s"
+msgstr "服务操作已完成：%s"
+
+msgid "Service status"
+msgstr "服务状态"
+
+msgid "Settings"
+msgstr "设置"
+
+msgid "Similarity from 0 to 1."
+msgstr "相似度范围为 0 到 1。"
+
+msgid "Snapshot playlist path"
+msgstr "快照播放列表路径"
+
+msgid "Start"
+msgstr "启动"
+
+msgid "Started at"
+msgstr "开始时间"
+
+msgid "Status"
+msgstr "状态"
+
+msgid "Stop"
+msgstr "停止"
+
+msgid "Stopped or unavailable"
+msgstr "已停止或不可用"
+
+msgid "Stream preference"
+msgstr "直播流偏好"
+
+msgid "Structured editor for playlist, rtp2httpd, EPG, logo, catch-up, and provider options. Unknown variables and comments in hb.env are preserved."
+msgstr "用于编辑播放列表、rtp2httpd、EPG、台标、回看和运营商选项的结构化界面。hb.env 中的未知变量和注释会被保留。"
+
+msgid "The service returned an invalid status response"
+msgstr "服务返回了无效的状态响应"
+
+msgid "The token is managed by the backend and is not displayed in LuCI."
+msgstr "令牌由后端管理，不会显示在 LuCI 中。"
+
+msgid "Timeshift channels"
+msgstr "回看频道数"
+
+msgid "Token server"
+msgstr "令牌服务器"
+
+msgid "UHD tag"
+msgstr "超高清标签"
+
+msgid "Unable to secure the environment file"
+msgstr "无法设置环境配置文件的安全权限"
+
+msgid "Unmatched channels"
+msgstr "未匹配频道"
+
+msgid "Use 51zmt groups"
+msgstr "使用 51zmt 分组"
+
+msgid "Use auto to prefer captured values."
+msgstr "使用 auto 可优先采用捕获到的值。"
+
+msgid "Use cached provider data"
+msgstr "使用缓存的运营商数据"
+
+msgid "Use the host and port configured under rtp2httpd Listen Addresses, for example http://10.1.1.1:5140."
+msgstr "使用 rtp2httpd“监听地址”中配置的主机和端口，例如 http://10.1.1.1:5140。"
+
+msgid "User channel ID"
+msgstr "用户频道 ID"
+
+msgid "rtp2httpd"
+msgstr "rtp2httpd"
+
+msgid "rtp2httpd base URL"
+msgstr "rtp2httpd 基础 URL"
+
+msgid "unknown"
+msgstr "未知"

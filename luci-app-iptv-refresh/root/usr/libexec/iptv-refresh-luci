@@ -1,0 +1,31 @@
+#!/bin/sh
+set -e
+
+. /lib/functions.sh
+
+config_load iptv-refresh
+config_get listen_host main listen_host 127.0.0.1
+config_get listen_port main listen_port 9100
+config_get token_file main token_file /etc/iptv-refresh/token
+config_get iface main iface eth3.3927
+
+action="${1:-}"
+case "$action" in
+	health|status|playlist)
+		exec /usr/bin/iptv-refresh control "$action" \
+			--host "$listen_host" \
+			--port "$listen_port" \
+			--token-file "$token_file" \
+			--iface "$iface"
+		;;
+	version)
+		exec /usr/bin/iptv-refresh version
+		;;
+	log)
+		exec logread -e iptv-refresh -l 200
+		;;
+	*)
+		echo "Usage: $0 <health|status|playlist|version|log>" >&2
+		exit 2
+		;;
+esac

@@ -1,0 +1,81 @@
+name: OpenWrt packages
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: openwrt-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  OPENWRT_BASE_URL: https://downloads.openwrt.org/releases/25.12.5/targets/x86/64
+  SDK_ARCHIVE: openwrt-sdk-25.12.5-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+  SDK_DIR_NAME: openwrt-sdk-25.12.5-x86-64_gcc-14.3.0_musl.Linux-x86_64
+  SDK_SHA256: 0c8df0151a1e88feb7c03d694d61f6a18d51872815b7c811d76e2b77504d5e9c
+
+jobs:
+  build:
+    name: OpenWrt 25.12.5 x86-64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install SDK host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends bison build-essential clang file flex g++ gawk gcc-multilib gettext git libncurses-dev libssl-dev python3 python3-setuptools rsync swig unzip wget zlib1g-dev zstd
+
+      - name: Download and verify OpenWrt SDK
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 "$OPENWRT_BASE_URL/$SDK_ARCHIVE" --output "$RUNNER_TEMP/$SDK_ARCHIVE"
+          echo "$SDK_SHA256  $RUNNER_TEMP/$SDK_ARCHIVE" | sha256sum --check -
+          tar --zstd -xf "$RUNNER_TEMP/$SDK_ARCHIVE" -C "$RUNNER_TEMP"
+          echo "SDK_DIR=$RUNNER_TEMP/$SDK_DIR_NAME" >> "$GITHUB_ENV"
+
+      - name: Restore release feeds and target config
+        shell: bash
+        run: |
+          curl --fail --location --retry 3 "$OPENWRT_BASE_URL/config.buildinfo" --output "$SDK_DIR/.config"
+          cd "$SDK_DIR"
+          ./scripts/feeds update packages luci
+          ./scripts/feeds install golang
+
+      - name: Build backend, LuCI, and Simplified Chinese packages
+        shell: bash
+        run: |
+          chmod +x tools/*.sh
+          sh tools/build-openwrt-package.sh "$SDK_DIR"
+
+      - name: Collect packages and checksums
+        shell: bash
+        run: |
+          mkdir -p action-dist
+          find "$SDK_DIR/bin/packages" -type f \( -name 'iptv-refresh*.apk' -o -name 'iptv-refresh*.ipk' -o -name 'luci-app-iptv-refresh*.apk' -o -name 'luci-app-iptv-refresh*.ipk' -o -name 'luci-i18n-iptv-refresh*.apk' -o -name 'luci-i18n-iptv-refresh*.ipk' \) -exec cp -v {} action-dist/ \;
+          count="$(find action-dist -maxdepth 1 -type f | wc -l)"
+          if [ "$count" -lt 3 ]; then
+            echo "Expected backend, LuCI, and zh-cn packages; found $count"
+            exit 1
+          fi
+          cd action-dist
+          find . -maxdepth 1 -type f \( -name '*.apk' -o -name '*.ipk' \) -print0 |
+            sort -z | xargs -0 sha256sum > SHA256SUMS
+
+      - name: Upload OpenWrt packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: iptv-refresh-openwrt-25.12.5-x86_64
+          path: action-dist/
+          if-no-files-found: error
+          retention-days: 14

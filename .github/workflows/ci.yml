@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Go and LuCI checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Check Go formatting
+        shell: bash
+        run: |
+          unformatted="$(find . -type f -name '*.go' -print0 | xargs -0 gofmt -l)"
+          if [ -n "$unformatted" ]; then
+            echo "Run gofmt on:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run Go checks
+        run: |
+          go version
+          go vet ./...
+          go test -race -coverprofile=coverage.out ./...
+
+      - name: Run LuCI checks
+        run: |
+          node tools/check-luci-js.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/*.js
+          node tools/test-luci-settings.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/settings.js
+          node tools/test-luci-environment.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/environment.js
+
+      - name: Build Linux x86-64 binary
+        shell: bash
+        run: |
+          mkdir -p build
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -buildvcs=true -trimpath -ldflags="-s -w -X main.version=ci-${GITHUB_SHA::12}" -o build/iptv-refresh-linux-amd64 ./cmd/iptv-refresh
+          sha256sum build/iptv-refresh-linux-amd64 > build/iptv-refresh-linux-amd64.sha256
+
+      - name: Upload Linux binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: iptv-refresh-linux-amd64
+          path: |
+            build/iptv-refresh-linux-amd64
+            build/iptv-refresh-linux-amd64.sha256
+          if-no-files-found: error
+          retention-days: 7

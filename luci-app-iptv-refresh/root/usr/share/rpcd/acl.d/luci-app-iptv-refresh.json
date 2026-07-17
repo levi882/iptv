@@ -1,0 +1,29 @@
+{
+	"luci-app-iptv-refresh": {
+		"description": "Grant access to the IPTV Refresh LuCI application",
+		"read": {
+			"ubus": {
+				"file": [ "exec", "read" ],
+				"service": [ "list" ],
+				"uci": [ "get" ]
+			},
+			"uci": [ "iptv-refresh" ],
+			"file": {
+				"/etc/iptv-refresh/hb.env": [ "read" ],
+				"/usr/libexec/iptv-refresh-luci": [ "exec" ]
+			}
+		},
+		"write": {
+			"ubus": {
+				"file": [ "exec", "write" ],
+				"luci": [ "setInitAction" ],
+				"uci": [ "add", "apply", "commit", "delete", "set" ]
+			},
+			"uci": [ "iptv-refresh" ],
+			"file": {
+				"/etc/iptv-refresh/hb.env": [ "write" ],
+				"/usr/libexec/iptv-refresh-luci-action": [ "exec" ]
+			}
+		}
+	}
+}

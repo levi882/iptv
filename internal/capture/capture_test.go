@@ -1,0 +1,31 @@
+package capture
+
+import (
+	"strings"
+	"testing"
+
+	"iptv/internal/config"
+)
+
+func TestParse(t *testing.T) {
+	raw := []byte("POST /GetUserToken UserID=user1&Authenticator=aabb&citycode=027\nGET http://1.2.3.4:8080/iptvepg/function/index.jsp?STBID=abcd&stbinfo=eeff&easip=1.2.3.4&networkid=9\nCTCSetConfig('UserToken','token-1')")
+	env := Parse(raw, config.Env{}, "5.6.7.8")
+	if !Complete(env) || env["HB_AUTHENTICATOR"] != "AABB" || env["HB_STBID"] != "ABCD" || env["HB_USER_TOKEN"] != "token-1" || env["HB_EPG_ENTRY"] != "http://1.2.3.4:8080" {
+		t.Fatalf("unexpected capture: %#v", env)
+	}
+	for key, value := range env {
+		if strings.ContainsAny(value, "\r\n") {
+			t.Fatalf("unsafe value %s=%q", key, value)
+		}
+	}
+}
+
+func TestCapturedEnoughRequiresFreshLogin(t *testing.T) {
+	fallback := config.Env{"HB_USER_ID": "old", "HB_AUTHENTICATOR": "AA", "HB_STBID": "BB", "HB_STBINFO": "CC"}
+	if capturedEnough(nil, fallback, "121.60.255.37") {
+		t.Fatal("fallback-only credentials must not stop capture early")
+	}
+	if !capturedEnough([]byte("UserID=new&Authenticator=dd"), fallback, "121.60.255.37") {
+		t.Fatal("fresh login plus cached device fields should stop capture")
+	}
+}

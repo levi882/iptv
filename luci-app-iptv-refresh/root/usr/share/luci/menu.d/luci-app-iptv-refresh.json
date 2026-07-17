@@ -1,0 +1,36 @@
+{
+	"admin/services/iptv-refresh": {
+		"title": "IPTV Refresh",
+		"order": 60,
+		"action": {
+			"type": "firstchild"
+		},
+		"depends": {
+			"acl": [ "luci-app-iptv-refresh" ]
+		}
+	},
+	"admin/services/iptv-refresh/overview": {
+		"title": "Overview",
+		"order": 10,
+		"action": {
+			"type": "view",
+			"path": "iptv-refresh/overview"
+		}
+	},
+	"admin/services/iptv-refresh/settings": {
+		"title": "Settings",
+		"order": 20,
+		"action": {
+			"type": "view",
+			"path": "iptv-refresh/settings"
+		}
+	},
+	"admin/services/iptv-refresh/environment": {
+		"title": "Environment",
+		"order": 30,
+		"action": {
+			"type": "view",
+			"path": "iptv-refresh/environment"
+		}
+	}
+}
