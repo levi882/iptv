@@ -109,6 +109,8 @@ if grep -q '^CONFIG_PACKAGE_liblucihttp-lua=[ym]$' "$SDK/.config"; then
 	exit 1
 fi
 
-make -C "$SDK" package/iptv-refresh/compile V=s
-make -C "$SDK" package/luci-app-iptv-refresh/compile V=s
+# Build the complete selected dependency graph so development headers are
+# staged before consumers such as liblucihttp-ucode are compiled. Invoking
+# individual package compile targets does not guarantee that ordering.
+make -C "$SDK" -j"$(nproc)" package/compile V=s
 find "$SDK/bin/packages" -type f \( -name 'iptv-refresh*.apk' -o -name 'iptv-refresh*.ipk' -o -name 'luci-app-iptv-refresh*.apk' -o -name 'luci-app-iptv-refresh*.ipk' -o -name 'luci-i18n-iptv-refresh*.apk' -o -name 'luci-i18n-iptv-refresh*.ipk' \) -print
