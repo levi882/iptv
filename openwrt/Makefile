@@ -41,10 +41,21 @@ define Package/iptv-refresh/postinst
 token_file=/etc/iptv-refresh/token
 token="$$(head -n 1 "$${token_file}" 2>/dev/null || true)"
 if [ -z "$${token}" ] || [ "$${token}" = "change-me" ]; then
+	random_file="$${token_file}.random.$$$$"
 	umask 077
-	dd if=/dev/urandom bs=32 count=1 2>/dev/null | \
-		hexdump -v -e '1/1 "%02x"' > "$${token_file}"
-	printf '\n' >> "$${token_file}"
+	if ! dd if=/dev/urandom of="$${random_file}" bs=32 count=1 2>/dev/null; then
+		rm -f "$${random_file}"
+		echo "ERROR: unable to generate API token" >&2
+		exit 1
+	fi
+	token="$$(sha256sum "$${random_file}")"
+	rm -f "$${random_file}"
+	token="$${token%% *}"
+	[ "$${#token}" -eq 64 ] || {
+		echo "ERROR: generated API token has an invalid length" >&2
+		exit 1
+	}
+	printf '%s\n' "$${token}" > "$${token_file}"
 	chmod 600 "$${token_file}"
 fi
 listen_port="$$(uci -q get iptv-refresh.main.listen_port 2>/dev/null || true)"
@@ -52,7 +63,7 @@ if [ "$${listen_port}" = "9099" ]; then
 	uci set iptv-refresh.main.listen_port='9100'
 	uci commit iptv-refresh
 fi
-unset token listen_port
+unset token random_file listen_port
 exit 0
 endef
 

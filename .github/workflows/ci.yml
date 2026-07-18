@@ -52,6 +52,10 @@ jobs:
           node tools/test-luci-settings.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/settings.js
           node tools/test-luci-environment.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/environment.js
 
+      - name: Run OpenWrt shell checks
+        shell: bash
+        run: sh tools/test-openwrt-shell.sh
+
       - name: Build Linux x86-64 binary
         shell: bash
         run: |

@@ -164,10 +164,19 @@ return view.extend({
 	handleServiceAction: function(action, event) {
 		var button = event.currentTarget;
 		button.disabled = true;
-		return callInitAction(SERVICE, action).then(L.bind(function() {
-			ui.addNotification(null, E('p', {}, _('Service action completed: %s').format(action)), 'info');
+		return callInitAction(SERVICE, action).then(function(result) {
+			if (result !== true)
+				throw new Error(_('Command failed') + ': ' + action);
 			return new Promise(function(resolve) { window.setTimeout(resolve, 1000); });
-		}, this)).then(L.bind(this.pollStatus, this)).catch(function(error) {
+		}).then(L.bind(function() {
+			if (action === 'stop')
+				return this.pollStatus();
+			return helper(READ_HELPER, 'status').then(L.bind(function(raw) {
+				this.updateStatus(raw);
+			}, this));
+		}, this)).then(function() {
+			ui.addNotification(null, E('p', {}, _('Service action completed: %s').format(action)), 'info');
+		}).catch(function(error) {
 			ui.addNotification(null, E('p', {}, error.message), 'error');
 		}).finally(function() {
 			button.disabled = false;

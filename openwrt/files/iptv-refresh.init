@@ -10,7 +10,7 @@ append_allow_ip() {
 
 ensure_token() {
 	local token_file="$1"
-	local token token_tmp
+	local token token_tmp random_tmp
 
 	IFS= read -r token < "$token_file" 2>/dev/null || token=
 	if [ -n "$token" ] && [ "$token" != "change-me" ]; then
@@ -19,23 +19,29 @@ ensure_token() {
 	fi
 
 	token_tmp="${token_file}.tmp.$$"
+	random_tmp="${token_tmp}.random"
 	umask 077
-	if ! dd if=/dev/urandom bs=32 count=1 2>/dev/null | \
-		hexdump -v -e '1/1 "%02x"' > "$token_tmp"; then
-		rm -f "$token_tmp"
+	if ! dd if=/dev/urandom of="$random_tmp" bs=32 count=1 2>/dev/null; then
+		rm -f "$token_tmp" "$random_tmp"
 		echo "ERROR: unable to generate API token" >&2
 		return 1
 	fi
-	printf '\n' >> "$token_tmp"
-	IFS= read -r token < "$token_tmp" || token=
+	if ! token="$(sha256sum "$random_tmp")"; then
+		rm -f "$token_tmp" "$random_tmp"
+		echo "ERROR: unable to encode API token" >&2
+		return 1
+	fi
+	rm -f "$random_tmp"
+	token="${token%% *}"
 	if [ "${#token}" -ne 64 ]; then
 		rm -f "$token_tmp"
 		echo "ERROR: generated API token has an invalid length" >&2
 		return 1
 	fi
+	printf '%s\n' "$token" > "$token_tmp"
 	chmod 600 "$token_tmp"
 	mv -f "$token_tmp" "$token_file"
-	unset token token_tmp
+	unset token token_tmp random_tmp
 }
 
 start_service() {

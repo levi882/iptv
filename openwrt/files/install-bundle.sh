@@ -43,11 +43,22 @@ if [ -r /etc/iptv-refresh/token ]; then
 	IFS= read -r token < /etc/iptv-refresh/token || true
 fi
 if [ -z "$token" ] || [ "$token" = "change-me" ]; then
-	dd if=/dev/urandom bs=32 count=1 2>/dev/null \
-		| od -An -tx1 \
-		| tr -d ' \n' > /etc/iptv-refresh/token
+	random_file=/etc/iptv-refresh/token.random.$$
+	if ! dd if=/dev/urandom of="$random_file" bs=32 count=1 2>/dev/null; then
+		rm -f "$random_file"
+		echo "ERROR: unable to generate API token" >&2
+		exit 1
+	fi
+	token="$(sha256sum "$random_file")"
+	rm -f "$random_file"
+	token="${token%% *}"
+	[ "${#token}" -eq 64 ] || {
+		echo "ERROR: generated API token has an invalid length" >&2
+		exit 1
+	}
+	printf '%s\n' "$token" > /etc/iptv-refresh/token
 fi
-unset token
+unset token random_file
 chmod 0600 /etc/iptv-refresh/token
 
 if [ "$was_running" -eq 1 ]; then
