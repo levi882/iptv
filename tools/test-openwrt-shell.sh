@@ -9,12 +9,47 @@ TEST_DIR="$(mktemp -d)"
 trap 'rm -rf "$TEST_DIR"' EXIT HUP INT TERM
 
 sh -n "$ROOT/openwrt/files/iptv-refresh.init"
+sh -n "$ROOT/openwrt/files/iptv-refresh-nginx-config"
 sh -n "$ROOT/openwrt/files/install-bundle.sh"
 sh -n "$ROOT/tools/install-openwrt-apk.sh"
 sh -n "$ROOT/tools/install-openwrt-luci-apk.sh"
 sh -n "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci"
 sh -n "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
 grep -q -- '--provider-iface "$provider_iface"' "$ROOT/openwrt/files/iptv-refresh.init"
+grep -q -- 'iptv-refresh-nginx-config' "$ROOT/openwrt/files/install-bundle.sh"
+grep -q -- 'iptv-refresh-nginx-config' "$ROOT/tools/build-openwrt-bundle.ps1"
+
+nginx_helper="$ROOT/openwrt/files/iptv-refresh-nginx-config"
+auth="$(sh "$nginx_helper" render-auth 0123456789abcdef)"
+[ "$auth" = 'proxy_set_header Authorization "Bearer 0123456789abcdef";' ] || {
+	echo "Unexpected nginx Authorization header" >&2
+	exit 1
+}
+if sh "$nginx_helper" render-auth 'bad"token' >/dev/null 2>&1; then
+	echo "Unsafe nginx token was accepted" >&2
+	exit 1
+fi
+
+locations="$TEST_DIR/iptv-refresh.locations"
+sh "$nginx_helper" render-locations 127.0.0.1 9100 10.1.1.50 2001:db8::/64 > "$locations"
+[ "$(grep -Fc 'allow 10.1.1.50;' "$locations")" -eq 2 ]
+[ "$(grep -Fc 'allow 2001:db8::/64;' "$locations")" -eq 2 ]
+grep -Fq 'include /etc/iptv-refresh/nginx.d/*.conf;' "$locations"
+grep -Fq 'proxy_method POST;' "$locations"
+grep -Fq 'proxy_pass_request_body off;' "$locations"
+grep -Fq 'proxy_pass http://127.0.0.1:9100/refresh?;' "$locations"
+if grep -Eq '\$is_args|\$args|iface=' "$locations"; then
+	echo "Generated nginx route preserves legacy query parameters" >&2
+	exit 1
+fi
+if sh "$nginx_helper" render-locations '127.0.0.1;return' 9100 >/dev/null 2>&1; then
+	echo "Unsafe nginx upstream address was accepted" >&2
+	exit 1
+fi
+if sh "$nginx_helper" render-locations 127.0.0.1 9100 '10.1.1.0/24;' >/dev/null 2>&1; then
+	echo "Unsafe nginx allow address was accepted" >&2
+	exit 1
+fi
 
 for helper in iptv-refresh-luci iptv-refresh-luci-action; do
 	mode="$(git -C "$ROOT" ls-files -s -- "luci-app-iptv-refresh/root/usr/libexec/$helper" | awk '{print $1}')"

@@ -52,6 +52,7 @@ try {
 
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\install-bundle.sh") -Destination (Join-Path $stage "install.sh")
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh.init") -Destination $stage
+Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh-nginx-config") -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh.uci") -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\hb.env") -Destination $stage
 

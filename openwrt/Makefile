@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=iptv-refresh
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=8
+PKG_RELEASE:=9
 PKG_LICENSE:=Proprietary
 
 PKG_BUILD_DEPENDS:=golang/host
@@ -67,6 +67,23 @@ unset token random_file listen_port
 exit 0
 endef
 
+define Package/iptv-refresh/postrm
+#!/bin/sh
+[ -n "$${IPKG_INSTROOT}" ] && exit 0
+[ -x /usr/bin/iptv-refresh ] && exit 0
+rm -f /etc/iptv-refresh/nginx.d/auth.conf /etc/nginx/conf.d/iptv-refresh.locations
+rmdir /etc/iptv-refresh/nginx.d 2>/dev/null || true
+for backup in /etc/nginx/conf.d/*.locations.iptv-refresh-legacy; do
+	[ -e "$${backup}" ] || continue
+	original="$${backup%.iptv-refresh-legacy}"
+	[ -e "$${original}" ] || mv "$${backup}" "$${original}"
+done
+if [ -x /etc/init.d/nginx ] && /etc/init.d/nginx running >/dev/null 2>&1; then
+	/etc/init.d/nginx reload >/dev/null 2>&1 || true
+fi
+exit 0
+endef
+
 define Build/Prepare
 	rm -rf $(PKG_BUILD_DIR)
 	$(INSTALL_DIR) $(PKG_BUILD_DIR)
@@ -78,6 +95,8 @@ define Package/iptv-refresh/install
 	$(INSTALL_BIN) $(GO_PKG_BUILD_BIN_DIR)/iptv-refresh $(1)/usr/bin/iptv-refresh
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/iptv-refresh.init $(1)/etc/init.d/iptv-refresh
+	$(INSTALL_DIR) $(1)/usr/libexec
+	$(INSTALL_BIN) ./files/iptv-refresh-nginx-config $(1)/usr/libexec/iptv-refresh-nginx-config
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/iptv-refresh.uci $(1)/etc/config/iptv-refresh
 	$(INSTALL_DIR) $(1)/etc/iptv-refresh

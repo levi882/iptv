@@ -492,3 +492,15 @@ msgstr "一次完整刷新的最长秒数，包括凭据抓取。"
 
 msgid "Optional diagnostic file containing sensitive raw provider traffic. Leave empty for normal use."
 msgstr "可选的诊断文件，其中包含敏感的运营商原始流量；正常使用时请留空。"
+
+msgid "Home Assistant compatibility proxy"
+msgstr "Home Assistant 兼容代理"
+
+msgid "Automatically inject the router API token, convert legacy GET refresh requests to POST, and ignore legacy query parameters."
+msgstr "自动注入路由器 API 令牌，将旧版 GET 刷新请求转换为 POST，并忽略旧版查询参数。"
+
+msgid "Home Assistant proxy source addresses"
+msgstr "Home Assistant 代理来源地址"
+
+msgid "Only these IP addresses or CIDR networks may use the token-injecting nginx refresh route. Prefer the exact Home Assistant IP when it is static."
+msgstr "仅允许这些 IP 地址或 CIDR 网段使用自动注入令牌的 nginx 刷新路由。Home Assistant 使用静态地址时，建议只填写其准确 IP。"

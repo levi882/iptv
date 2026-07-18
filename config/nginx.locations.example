@@ -1,16 +1,24 @@
-# Nginx reverse proxy locations for IPTV Refresh.
+# Reference output. The OpenWrt package generates this location automatically.
+# Prefer one exact Home Assistant address (for example 10.1.1.50/32).
 
 location = /iptv/refresh {
-    # Clients must use POST and send Authorization: Bearer <token>.
-    proxy_pass http://127.0.0.1:9100/refresh$is_args$args;
-    proxy_http_version 1.1;
+    allow 10.1.1.0/24;
+    deny all;
+    include /etc/iptv-refresh/nginx.d/*.conf;
+    proxy_method POST;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
     proxy_set_header Host $host;
     proxy_set_header Connection "";
+    proxy_http_version 1.1;
+    proxy_pass http://127.0.0.1:9100/refresh?;
 }
 
 location = /iptv/healthz {
-    proxy_pass http://127.0.0.1:9100/healthz;
-    proxy_http_version 1.1;
+    allow 10.1.1.0/24;
+    deny all;
     proxy_set_header Host $host;
     proxy_set_header Connection "";
+    proxy_http_version 1.1;
+    proxy_pass http://127.0.0.1:9100/healthz;
 }

@@ -71,6 +71,16 @@ return view.extend({
 		o.value('::1');
 		o.rmempty = false;
 
+		o = s.taboption('access', form.Flag, 'nginx_proxy', _('Home Assistant compatibility proxy'), _('Automatically inject the router API token, convert legacy GET refresh requests to POST, and ignore legacy query parameters.'));
+		o.default = '1';
+		o.rmempty = false;
+
+		o = s.taboption('access', form.DynamicList, 'nginx_allow_ip', _('Home Assistant proxy source addresses'), _('Only these IP addresses or CIDR networks may use the token-injecting nginx refresh route. Prefer the exact Home Assistant IP when it is static.'));
+		o.datatype = 'ipaddr';
+		o.value('10.1.1.0/24');
+		o.rmempty = false;
+		o.depends('nginx_proxy', '1');
+
 		return m.render();
 	}
 });

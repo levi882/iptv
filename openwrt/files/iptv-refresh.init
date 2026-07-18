@@ -8,6 +8,21 @@ append_allow_ip() {
 	procd_append_param command --allow-ip "$1"
 }
 
+refresh_nginx_proxy() {
+	local result
+	[ -x /usr/libexec/iptv-refresh-nginx-config ] || return 0
+	if ! result="$(/usr/libexec/iptv-refresh-nginx-config generate 2>&1)"; then
+		logger -t iptv-refresh -p daemon.err "nginx proxy generation failed: $result"
+		return 0
+	fi
+	[ "$result" = changed ] || return 0
+	if [ -x /etc/init.d/nginx ] && /etc/init.d/nginx running >/dev/null 2>&1; then
+		if ! /etc/init.d/nginx reload >/dev/null 2>&1; then
+			logger -t iptv-refresh -p daemon.err "nginx proxy changed but nginx reload failed"
+		fi
+	fi
+}
+
 ensure_token() {
 	local token_file="$1"
 	local token token_tmp random_tmp
@@ -60,6 +75,7 @@ start_service() {
 	ensure_token "$token_file" || return 1
 	IFS= read -r token < "$token_file"
 	unset token
+	refresh_nginx_proxy
 
 	procd_open_instance
 	procd_set_param command /usr/bin/iptv-refresh serve

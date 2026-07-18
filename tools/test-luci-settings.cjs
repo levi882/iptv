@@ -10,6 +10,7 @@ if (!sourcePath) {
 
 class Option {
 	value() {}
+	depends() {}
 }
 
 class Section {
@@ -37,6 +38,9 @@ const translate = value => value;
 const source = fs.readFileSync(sourcePath, 'utf8');
 if (!source.includes("'provider_iface'") || !source.includes("'Follow routing table'")) {
 	throw new Error('Provider HTTP interface setting is missing');
+}
+if (!source.includes("'nginx_proxy'") || !source.includes("'nginx_allow_ip'")) {
+	throw new Error('Home Assistant compatibility proxy settings are missing');
 }
 const loadView = new Function('view', 'form', 'uci', 'widgets', '_', source);
 const app = loadView(view, form, uci, widgets, translate);

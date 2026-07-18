@@ -12,6 +12,10 @@ fi
 	echo "ERROR: iptv-refresh binary is missing from $SELF_DIR" >&2
 	exit 1
 }
+[ -f "$SELF_DIR/iptv-refresh-nginx-config" ] || {
+	echo "ERROR: nginx configuration helper is missing from $SELF_DIR" >&2
+	exit 1
+}
 
 was_running=0
 if [ -x /etc/init.d/iptv-refresh ] && /etc/init.d/iptv-refresh running >/dev/null 2>&1; then
@@ -19,7 +23,7 @@ if [ -x /etc/init.d/iptv-refresh ] && /etc/init.d/iptv-refresh running >/dev/nul
 	/etc/init.d/iptv-refresh stop
 fi
 
-mkdir -p /usr/bin /etc/init.d /etc/config /etc/iptv-refresh
+mkdir -p /usr/bin /usr/libexec /etc/init.d /etc/config /etc/iptv-refresh
 cp "$SELF_DIR/iptv-refresh" /usr/bin/.iptv-refresh.new
 chmod 0755 /usr/bin/.iptv-refresh.new
 mv -f /usr/bin/.iptv-refresh.new /usr/bin/iptv-refresh
@@ -27,6 +31,10 @@ mv -f /usr/bin/.iptv-refresh.new /usr/bin/iptv-refresh
 cp "$SELF_DIR/iptv-refresh.init" /etc/init.d/.iptv-refresh.new
 chmod 0755 /etc/init.d/.iptv-refresh.new
 mv -f /etc/init.d/.iptv-refresh.new /etc/init.d/iptv-refresh
+
+cp "$SELF_DIR/iptv-refresh-nginx-config" /usr/libexec/.iptv-refresh-nginx-config.new
+chmod 0755 /usr/libexec/.iptv-refresh-nginx-config.new
+mv -f /usr/libexec/.iptv-refresh-nginx-config.new /usr/libexec/iptv-refresh-nginx-config
 
 if [ ! -e /etc/config/iptv-refresh ]; then
 	cp "$SELF_DIR/iptv-refresh.uci" /etc/config/iptv-refresh

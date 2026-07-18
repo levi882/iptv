@@ -56,8 +56,32 @@ capture interface; `none` follows the normal routing table. A provider HTTP
 interface without an IPv4 address is rejected immediately instead of waiting
 for the network timeout.
 
-The existing nginx routes for `/iptv/refresh` and `/iptv/healthz` continue to
-work. Optional routes for status and the generated playlist are:
+On OpenWrt, the package generates an nginx compatibility route for Home
+Assistant. The external `/iptv/refresh` route accepts the existing GET call,
+injects the router's current token, converts the request to a backend POST,
+and discards all query parameters. The token therefore remains on the router,
+and an old URL such as `?iface=eth3.3927` cannot override the interface selected
+in LuCI. Access is restricted by `nginx_allow_ip`; replace the default
+`10.1.1.0/24` with the exact Home Assistant address (for example
+`10.1.1.50/32`) when it is static.
+
+No Home Assistant change is required for an existing configuration like this:
+
+```yaml
+rest_command:
+  iptv_refresh:
+    url: !secret iptv_refresh_url
+    method: GET
+    timeout: 20
+
+# secrets.yaml
+iptv_refresh_url: "http://10.1.1.1/iptv/refresh?iface=eth3.3927"
+```
+
+The generated compatibility proxy can be disabled under **Services -> IPTV
+Refresh -> Settings -> Access control**. The backend API on
+`127.0.0.1:9100` remains POST-only and still requires its bearer token.
+Optional nginx routes for status and the generated playlist are:
 
 ```nginx
 location = /iptv/status {
@@ -152,9 +176,9 @@ the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded
 installers to the router:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r8.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r9.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r9.apk `
+scp .\dist\iptv-refresh-0.1.0-r9.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r10.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r10.apk `
   .\dist\SHA256SUMS `
   .\tools\install-openwrt-apk.sh `
   .\tools\install-openwrt-luci-apk.sh root@10.1.1.1:/tmp/
@@ -192,8 +216,9 @@ test -s /etc/iptv-refresh/token && echo "API token is present"
 
 - `tcpdump` captures the STB authentication exchange.
 - `ca-bundle` validates HTTPS EPG and logo sources.
-- nginx is optional for the Go process itself but remains the recommended
-  reverse proxy for Home Assistant access.
+- nginx is optional for the Go process itself. When nginx is installed, the
+  service maintains the source-restricted Home Assistant compatibility route
+  and reloads nginx only when its generated configuration changes.
 
 ## GitHub and automated builds
 

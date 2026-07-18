@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-PACKAGE=${1:-/tmp/luci-app-iptv-refresh-0.1.0-r9.apk}
-I18N_PACKAGE=/tmp/luci-i18n-iptv-refresh-zh-cn-0.1.0-r9.apk
+PACKAGE=${1:-/tmp/luci-app-iptv-refresh-0.1.0-r10.apk}
+I18N_PACKAGE=/tmp/luci-i18n-iptv-refresh-zh-cn-0.1.0-r10.apk
 MODE=
 case "${2:-}" in
 	--no-reload) MODE=--no-reload ;;
@@ -88,7 +88,7 @@ actual_i18n_sha256="$(sha256sum "$I18N_PACKAGE" | awk '{print $1}')"
 unset actual_i18n_sha256 expected_i18n_sha256 package_name SUMS_FILE
 
 apk info -e iptv-refresh >/dev/null 2>&1 || {
-	echo "ERROR: install iptv-refresh-0.1.0-r8.apk first" >&2
+	echo "ERROR: install iptv-refresh-0.1.0-r9.apk first" >&2
 	exit 1
 }
 

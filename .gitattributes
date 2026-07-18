@@ -1,9 +1,15 @@
 * text=auto
+.gitattributes text eol=lf
 
 *.go text eol=lf
 *.js text eol=lf
+*.cjs text eol=lf
 *.json text eol=lf
 *.md text eol=lf
 *.po text eol=lf
+*.ps1 text eol=lf
 *.sh text eol=lf
+*.example text eol=lf
 Makefile text eol=lf
+openwrt/files/* text eol=lf
+luci-app-iptv-refresh/root/usr/libexec/* text eol=lf
