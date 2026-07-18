@@ -44,6 +44,62 @@ function setText(id, value) {
 		element.textContent = value == null || value === '' ? '-' : String(value);
 }
 
+function setState(id, value, state) {
+	var element = document.getElementById(id);
+	if (!element)
+		return;
+
+	element.textContent = value == null || value === '' ? '-' : String(value);
+	if (state)
+		element.setAttribute('data-state', state);
+	else
+		element.removeAttribute('data-state');
+}
+
+function hasTime(value) {
+	return value && String(value).indexOf('0001-01-01') !== 0;
+}
+
+function setError(error) {
+	var panel = document.getElementById('iptv-error-panel');
+	if (!panel)
+		return;
+
+	panel.hidden = !error;
+	setText('iptv-last-error', error || '-');
+}
+
+function setServiceControls(available) {
+	var refresh = document.getElementById('iptv-refresh-button');
+	var captureRefresh = document.getElementById('iptv-capture-refresh-button');
+	var start = document.getElementById('iptv-start-button');
+	var restart = document.getElementById('iptv-restart-button');
+	var stop = document.getElementById('iptv-stop-button');
+	var download = document.getElementById('iptv-download-button');
+
+	if (refresh)
+		refresh.hidden = !available;
+	if (captureRefresh)
+		captureRefresh.hidden = !available;
+	if (start)
+		start.hidden = available;
+	if (restart)
+		restart.hidden = !available;
+	if (stop)
+		stop.hidden = !available;
+	if (download)
+		download.hidden = !available;
+}
+
+function setRefreshDisabled(disabled) {
+	var refresh = document.getElementById('iptv-refresh-button');
+	var captureRefresh = document.getElementById('iptv-capture-refresh-button');
+	if (refresh)
+		refresh.disabled = disabled;
+	if (captureRefresh)
+		captureRefresh.disabled = disabled;
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
@@ -58,28 +114,45 @@ return view.extend({
 		try {
 			status = parseStatus(raw);
 		} catch (error) {
-			setText('iptv-service-status', _('Stopped or unavailable'));
+			setState('iptv-refresh-result', '-', 'neutral');
+			setState('iptv-service-status', _('Stopped or unavailable'), 'error');
 			setText('iptv-refresh-state', '-');
-			var button = document.getElementById('iptv-refresh-button');
-			if (button)
-				button.disabled = true;
+			setText('iptv-started-at', '-');
+			setText('iptv-finished-at', '-');
+			setText('iptv-channels', '-');
+			setText('iptv-timeshift', '-');
+			setText('iptv-epg-mapped', '-');
+			setText('iptv-logos', '-');
+			setText('iptv-output', '-');
+			setError('');
+			setRefreshDisabled(true);
+			setServiceControls(false);
 			return;
 		}
 
 		var report = status.report || {};
-		setText('iptv-service-status', _('Running'));
+		var lastError = status.last_error || '';
+		var result = status.running
+			? [ _('Refreshing'), 'working' ]
+			: lastError
+				? [ _('Failed'), 'error' ]
+				: hasTime(status.finished_at)
+					? [ _('Completed'), 'success' ]
+					: [ _('Not run'), 'neutral' ];
+
+		setState('iptv-refresh-result', result[0], result[1]);
+		setState('iptv-service-status', _('Running'), 'success');
 		setText('iptv-refresh-state', status.running ? _('Refreshing') : _('Idle'));
 		setText('iptv-started-at', displayTime(status.started_at));
 		setText('iptv-finished-at', displayTime(status.finished_at));
-		setText('iptv-last-error', status.last_error || '-');
+		setError(lastError);
 		setText('iptv-channels', report.channels);
 		setText('iptv-timeshift', report.timeshift);
 		setText('iptv-epg-mapped', report.epg_mapped);
 		setText('iptv-logos', report.logos_matched);
 		setText('iptv-output', report.output_path);
-		var button = document.getElementById('iptv-refresh-button');
-		if (button)
-			button.disabled = status.running === true;
+		setRefreshDisabled(status.running === true);
+		setServiceControls(true);
 	},
 
 	pollStatus: function() {
@@ -101,13 +174,15 @@ return view.extend({
 		});
 	},
 
-	handleRefresh: function(event) {
-		var button = event.currentTarget;
-		button.disabled = true;
-		return helper(ACTION_HELPER, 'refresh').then(function() {
-			ui.addNotification(null, E('p', {}, _('Playlist refresh started.')), 'info');
+	handleRefresh: function(action, event) {
+		setRefreshDisabled(true);
+		return helper(ACTION_HELPER, action).then(function() {
+			var message = action === 'capture-refresh'
+				? _('Credential capture and playlist refresh started. Keep the STB powered on.')
+				: _('Playlist refresh started using saved credentials.');
+			ui.addNotification(null, E('p', {}, message), 'info');
 		}).catch(function(error) {
-			button.disabled = false;
+			setRefreshDisabled(false);
 			ui.addNotification(null, E('p', {}, error.message), 'error');
 		});
 	},
@@ -148,49 +223,106 @@ return view.extend({
 
 		poll.add(L.bind(this.pollStatus, this), 3);
 
-		var rows = [
-			[ _('Service status'), 'iptv-service-status' ],
-			[ _('Refresh state'), 'iptv-refresh-state' ],
-			[ _('Started at'), 'iptv-started-at' ],
-			[ _('Finished at'), 'iptv-finished-at' ],
-			[ _('Last error'), 'iptv-last-error' ],
-			[ _('Channels'), 'iptv-channels' ],
-			[ _('Timeshift channels'), 'iptv-timeshift' ],
-			[ _('EPG matches'), 'iptv-epg-mapped' ],
-			[ _('Logo matches'), 'iptv-logos' ],
-			[ _('Playlist path'), 'iptv-output' ],
-			[ _('Backend version'), 'iptv-version', version || '-' ]
-		];
-
-		var table = E('table', { 'class': 'table' }, rows.map(function(row) {
-			return E('tr', { 'class': 'tr' }, [
-				E('td', { 'class': 'td left', 'style': 'width:35%' }, row[0]),
-				E('td', { 'class': 'td left', 'id': row[1] }, row[2] || '-')
+		var metric = function(label, id) {
+			return E('div', { 'class': 'iptv-metric' }, [
+				E('span', { 'class': 'iptv-label' }, label),
+				E('strong', { 'id': id }, '-')
 			]);
-		}));
+		};
+		var detail = function(label, id) {
+			return E('div', { 'class': 'iptv-detail' }, [
+				E('span', { 'class': 'iptv-label' }, label),
+				E('span', { 'id': id }, '-')
+			]);
+		};
+
+		var statusPanel = E('div', { 'class': 'iptv-status-panel' }, [
+			E('div', { 'class': 'iptv-summary' }, [
+				E('div', { 'class': 'iptv-result-card', 'role': 'status' }, [
+					E('span', { 'class': 'iptv-label' }, _('Refresh result')),
+					E('strong', { 'class': 'iptv-result', 'id': 'iptv-refresh-result', 'data-state': 'neutral' }, '-')
+				]),
+				E('div', { 'class': 'iptv-service-card' }, [
+					detail(_('Service status'), 'iptv-service-status'),
+					detail(_('Refresh state'), 'iptv-refresh-state'),
+					E('div', { 'class': 'iptv-detail' }, [
+						E('span', { 'class': 'iptv-label' }, _('Backend version')),
+						E('span', { 'id': 'iptv-version' }, version || '-')
+					])
+				])
+			]),
+			E('div', { 'class': 'iptv-metrics' }, [
+				metric(_('Channels'), 'iptv-channels'),
+				metric(_('Timeshift channels'), 'iptv-timeshift'),
+				metric(_('EPG matches'), 'iptv-epg-mapped'),
+				metric(_('Logo matches'), 'iptv-logos')
+			]),
+			E('div', { 'class': 'iptv-details' }, [
+				detail(_('Started at'), 'iptv-started-at'),
+				detail(_('Finished at'), 'iptv-finished-at'),
+				detail(_('Playlist path'), 'iptv-output')
+			]),
+			E('div', { 'class': 'iptv-error-panel', 'id': 'iptv-error-panel', 'role': 'alert', 'hidden': 'hidden' }, [
+				E('strong', {}, _('Last error')),
+				E('pre', { 'id': 'iptv-last-error' }, '-')
+			])
+		]);
+
+		var styles = E('style', {}, [
+			'.iptv-status-panel{margin-top:.75rem}',
+			'.iptv-summary{display:grid;grid-template-columns:minmax(12rem,1fr) minmax(18rem,2fr);gap:.75rem}',
+			'.iptv-result-card,.iptv-service-card,.iptv-metric,.iptv-detail{border:1px solid rgba(127,127,127,.28);border-radius:.55rem;background:rgba(127,127,127,.07)}',
+			'.iptv-result-card{display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:1rem 1.2rem}',
+			'.iptv-result{display:inline-block;margin-top:.4rem;padding:.25rem .75rem;border:1px solid currentColor;border-radius:999px;font-size:1.4rem;line-height:1.3}',
+			'.iptv-result[data-state="success"],[data-state="success"]{color:#2e9b50}',
+			'.iptv-result[data-state="error"],[data-state="error"]{color:#d64b4b}',
+			'.iptv-result[data-state="working"]{color:#368bd6}',
+			'.iptv-result[data-state="neutral"]{color:inherit;opacity:.72}',
+			'.iptv-service-card{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;background:transparent;overflow:hidden}',
+			'.iptv-service-card .iptv-detail{border:0;border-radius:0;background:rgba(127,127,127,.07)}',
+			'.iptv-service-card .iptv-detail+.iptv-detail{border-left:1px solid rgba(127,127,127,.22)}',
+			'.iptv-label{display:block;margin-bottom:.3rem;font-size:.82rem;line-height:1.3;opacity:.72}',
+			'.iptv-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-top:.75rem}',
+			'.iptv-metric{padding:.8rem 1rem;min-width:0}',
+			'.iptv-metric strong{font-size:1.65rem;line-height:1.2}',
+			'.iptv-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem;margin-top:.75rem}',
+			'.iptv-detail{padding:.75rem 1rem;min-width:0;overflow-wrap:anywhere}',
+			'.iptv-details .iptv-detail:last-child{grid-column:1/-1}',
+			'.iptv-error-panel{margin-top:.75rem;padding:.8rem 1rem;border:1px solid rgba(214,75,75,.65);border-radius:.55rem;background:rgba(214,75,75,.08)}',
+			'.iptv-error-panel[hidden]{display:none}',
+			'.iptv-error-panel pre{max-height:8em;margin:.5rem 0 0;padding:.65rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word;background:rgba(0,0,0,.08);color:inherit}',
+			'.iptv-actions{display:flex;flex-wrap:wrap;gap:.5rem}',
+			'.iptv-action-hint{flex-basis:100%;margin:.25rem 0 0;opacity:.75}',
+			'.iptv-actions [hidden]{display:none}',
+			'.iptv-log-head{display:flex;align-items:center;justify-content:space-between;gap:1rem}',
+			'#iptv-log-output{max-height:24em;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:.75rem}',
+			'@media(max-width:800px){.iptv-summary{grid-template-columns:1fr}.iptv-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}',
+			'@media(max-width:520px){.iptv-service-card,.iptv-details{grid-template-columns:1fr}.iptv-service-card .iptv-detail+.iptv-detail{border-left:0;border-top:1px solid rgba(127,127,127,.22)}.iptv-details .iptv-detail:last-child{grid-column:auto}}'
+		].join(''));
 
 		var viewNode = E('div', { 'class': 'cbi-map' }, [
+			styles,
 			E('h2', {}, _('IPTV Refresh')),
 			E('div', { 'class': 'cbi-map-descr' }, _('Manage the local IPTV playlist refresh service. The API token remains on the router and is never sent to this browser.')),
-			E('div', { 'class': 'cbi-section' }, [ E('h3', {}, _('Status')), table ]),
+			E('div', { 'class': 'cbi-section' }, [ E('h3', {}, _('Status')), statusPanel ]),
 			E('div', { 'class': 'cbi-section' }, [
 				E('h3', {}, _('Actions')),
-				E('div', { 'class': 'cbi-section-node' }, [
-					E('button', { 'class': 'btn cbi-button cbi-button-action important', 'id': 'iptv-refresh-button', 'click': ui.createHandlerFn(this, 'handleRefresh') }, _('Refresh playlist')),
-					' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-positive', 'click': ui.createHandlerFn(this, 'handleServiceAction', 'start') }, _('Start')),
-					' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-action', 'click': ui.createHandlerFn(this, 'handleServiceAction', 'restart') }, _('Restart')),
-					' ',
-					E('button', { 'class': 'btn cbi-button cbi-button-negative', 'click': ui.createHandlerFn(this, 'handleServiceAction', 'stop') }, _('Stop')),
-					' ',
-					E('button', { 'class': 'btn cbi-button', 'click': ui.createHandlerFn(this, 'handleDownload') }, _('Download playlist'))
+				E('div', { 'class': 'cbi-section-node iptv-actions' }, [
+					E('button', { 'class': 'btn cbi-button cbi-button-action important', 'id': 'iptv-refresh-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleRefresh', 'refresh') }, _('Refresh using saved credentials')),
+					E('button', { 'class': 'btn cbi-button cbi-button-action', 'id': 'iptv-capture-refresh-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleRefresh', 'capture-refresh') }, _('Capture credentials and refresh')),
+					E('button', { 'class': 'btn cbi-button cbi-button-positive', 'id': 'iptv-start-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleServiceAction', 'start') }, _('Start')),
+					E('button', { 'class': 'btn cbi-button cbi-button-action', 'id': 'iptv-restart-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleServiceAction', 'restart') }, _('Restart')),
+					E('button', { 'class': 'btn cbi-button cbi-button-negative', 'id': 'iptv-stop-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleServiceAction', 'stop') }, _('Stop')),
+					E('button', { 'class': 'btn cbi-button', 'id': 'iptv-download-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleDownload') }, _('Download playlist')),
+					E('p', { 'class': 'iptv-action-hint' }, _('The normal refresh does not require the STB. Use credential capture only after saved credentials expire, and keep the STB powered on while capturing.'))
 				])
 			]),
 			E('div', { 'class': 'cbi-section' }, [
-				E('h3', {}, _('Recent log')),
-				E('button', { 'class': 'btn cbi-button', 'click': ui.createHandlerFn(this, 'handleReloadLog') }, _('Reload log')),
-				E('pre', { 'id': 'iptv-log-output', 'style': 'max-height:28em;overflow:auto;white-space:pre-wrap;margin-top:1em' }, log || _('No matching log entries.'))
+				E('div', { 'class': 'iptv-log-head' }, [
+					E('h3', {}, _('Recent log')),
+					E('button', { 'class': 'btn cbi-button', 'click': ui.createHandlerFn(this, 'handleReloadLog') }, _('Reload log'))
+				]),
+				E('pre', { 'id': 'iptv-log-output' }, log || _('No matching log entries.'))
 			])
 		]);
 

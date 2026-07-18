@@ -37,11 +37,16 @@ GET  /healthz
 GET  /status
 GET  /refresh?token=TOKEN&iface=eth3.3927
 POST /refresh?token=TOKEN&iface=eth3.3927
+POST /refresh?token=TOKEN&iface=eth3.3927&capture=1
 GET  /playlist?token=TOKEN
 ```
 
 `Authorization: Bearer TOKEN` can be used instead of putting the token in the
-URL. Refresh runs in the background; `/status` reports its last result.
+URL. Refresh runs in the background; `/status` reports its last result. The
+normal `/refresh` route reuses the saved credentials, so Home Assistant and
+LuCI can refresh without waiting for the STB. Add `capture=1` only when the
+provider credentials have expired and the STB is powered on. A failed refresh
+keeps the previously generated playlist and the last successful report.
 
 The existing nginx routes for `/iptv/refresh` and `/iptv/healthz` continue to
 work. Optional routes for status and the generated playlist are:
@@ -138,9 +143,9 @@ For the verified OpenWrt 25.12.5 `x86_64` artifacts in `dist/`, copy all three A
 and their guarded installers to the router and run:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r6.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r7.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r7.apk `
+scp .\dist\iptv-refresh-0.1.0-r7.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r8.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r8.apk `
   .\tools\install-openwrt-apk.sh `
   .\tools\install-openwrt-luci-apk.sh root@10.1.1.1:/tmp/
 ssh root@10.1.1.1 "sh /tmp/install-openwrt-apk.sh"

@@ -27,6 +27,7 @@ func controlCommand(args []string) error {
 	port := set.Int("port", defaultServicePort, "service port")
 	tokenFile := set.String("token-file", "/etc/iptv-refresh/token", "API token file")
 	iface := set.String("iface", "", "IPTV capture interface")
+	capture := set.Bool("capture", false, "capture fresh STB credentials before refreshing")
 	if err := set.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -57,7 +58,7 @@ func controlCommand(args []string) error {
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
-	body, err := controlRequest(client, baseURL, action, token, *iface)
+	body, err := controlRequest(client, baseURL, action, token, *iface, *capture)
 	if err != nil {
 		return err
 	}
@@ -68,7 +69,7 @@ func controlCommand(args []string) error {
 	return err
 }
 
-func controlRequest(client *http.Client, baseURL, action, token, iface string) ([]byte, error) {
+func controlRequest(client *http.Client, baseURL, action, token, iface string, capture bool) ([]byte, error) {
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -92,9 +93,14 @@ func controlRequest(client *http.Client, baseURL, action, token, iface string) (
 	if err != nil {
 		return nil, fmt.Errorf("build control URL: %w", err)
 	}
-	if action == "refresh" && iface != "" {
+	if action == "refresh" {
 		query := endpoint.Query()
-		query.Set("iface", iface)
+		if iface != "" {
+			query.Set("iface", iface)
+		}
+		if capture {
+			query.Set("capture", "1")
+		}
 		endpoint.RawQuery = query.Encode()
 	}
 	var requestBody io.Reader

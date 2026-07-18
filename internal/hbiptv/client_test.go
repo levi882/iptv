@@ -51,3 +51,22 @@ func TestFetchFlow(t *testing.T) {
 		t.Fatalf("steps = %v, want %v", steps, want)
 	}
 }
+
+func TestInitSessionDiscoversPageRedirectHost(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `<script>window.location="http://121.60.163.238:8080/iptvepg/function/index.jsp?loadbalanced=1"</script>`)
+	}))
+	defer server.Close()
+
+	client, err := New(Config{EPGEntry: server.URL, Timeout: 3 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	host, err := client.initSession(context.Background(), server.URL, "token", Credentials{UserID: "u", STBID: "s"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if host != "http://121.60.163.238:8080" {
+		t.Fatalf("host = %q", host)
+	}
+}

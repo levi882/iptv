@@ -97,7 +97,7 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 		}
 	}
 
-	settings.TokenServer = resolveValue(settings.TokenServer, creds["HB_TOKEN_SERVER"], "http://121.60.255.37:4338")
+	settings.TokenServer = resolveTokenServer(settings.TokenServer, creds["HB_TOKEN_SERVER"])
 	settings.PlatformOrigin = resolveValue(settings.PlatformOrigin, creds["HB_PLATFORM_ORIGIN"], "http://121.60.255.6:8080")
 	settings.EPGEntry = resolveValue(settings.EPGEntry, creds["HB_EPG_ENTRY"], "http://121.60.255.4:8080")
 	settings.EASIP = resolveValue(settings.EASIP, creds["HB_EASIP"], "121.60.255.4")
@@ -305,6 +305,17 @@ func snapshotEPGHost(path string) string {
 		return ""
 	}
 	return string(match[1])
+}
+
+func resolveTokenServer(configured, captured string) string {
+	const legacyDefault = "http://121.60.255.37:4338"
+	// The legacy packaged value was a concrete host even though the provider
+	// load-balances this endpoint. Prefer a freshly captured endpoint over that
+	// old default, while preserving any genuinely custom configured server.
+	if captured != "" && (configured == "" || configured == "auto" || configured == legacyDefault) {
+		return captured
+	}
+	return resolveValue(configured, captured, legacyDefault)
 }
 
 func tokenHost(endpoint string) string {

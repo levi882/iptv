@@ -91,9 +91,8 @@ func loadWithOverrides(repo, envPath, credsPath, iface string) (app.Settings, er
 		settings.CredsFile = credsPath
 	}
 	if iface != "" {
-		oldInterface := settings.Interface
 		settings.Interface = iface
-		if settings.BindInterface == "" || settings.BindInterface == oldInterface {
+		if !settings.BindInterfaceExplicit {
 			settings.BindInterface = iface
 		}
 	}

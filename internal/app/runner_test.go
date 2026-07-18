@@ -172,3 +172,14 @@ func localArtifactPath(repo, path string) string {
 	}
 	return path
 }
+
+func TestResolveTokenServerPrefersCapturedOverLegacyDefault(t *testing.T) {
+	const captured = "http://121.60.255.38:4338"
+	if got := resolveTokenServer("http://121.60.255.37:4338", captured); got != captured {
+		t.Fatalf("legacy default resolved to %q", got)
+	}
+	const custom = "http://10.0.0.1:4338"
+	if got := resolveTokenServer(custom, captured); got != custom {
+		t.Fatalf("custom server resolved to %q", got)
+	}
+}

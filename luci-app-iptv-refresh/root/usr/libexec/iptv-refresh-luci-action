@@ -18,13 +18,21 @@ case "$action" in
 			--token-file "$token_file" \
 			--iface "$iface"
 		;;
+	capture-refresh)
+		exec /usr/bin/iptv-refresh control refresh \
+			--host "$listen_host" \
+			--port "$listen_port" \
+			--token-file "$token_file" \
+			--iface "$iface" \
+			--capture
+		;;
 	chmod-env)
 		# The LuCI editor is intentionally restricted to this exact path by
 		# rpcd ACL. Do not derive a chmod target from writable UCI data.
 		chmod 0600 /etc/iptv-refresh/hb.env
 		;;
 	*)
-		echo "Usage: $0 <refresh|chmod-env>" >&2
+		echo "Usage: $0 <refresh|capture-refresh|chmod-env>" >&2
 		exit 2
 		;;
 esac

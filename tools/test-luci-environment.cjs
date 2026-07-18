@@ -87,6 +87,7 @@ const original = [
 
 app.render(original);
 assert.strictEqual(app.environmentMap.lastSection.hidetitle, true);
+assert.strictEqual(app.environmentMap.raw.env.HB_BIND_INTERFACE, 'auto');
 assert(!app.environmentMap.raw.env._raw_preview.includes('secret-token'));
 assert(app.environmentMap.raw.env._raw_preview.includes('R2H_TOKEN=********'));
 

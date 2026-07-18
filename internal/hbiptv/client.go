@@ -53,6 +53,7 @@ var (
 	userTokenRE   = regexp.MustCompile(`(?i)UserToken=([^\s&<]+)`)
 	configTokenRE = regexp.MustCompile(`CTCSetConfig\('UserToken','([^']+)'\)`)
 	errCodeRE     = regexp.MustCompile(`(?i)errcode\s*=\s*(\d+)`)
+	epgHostRE     = regexp.MustCompile(`(?i)(https?://[a-z0-9.-]+(?::[0-9]+)?)/iptvepg`)
 )
 
 func New(config Config) (*Client, error) {
@@ -180,12 +181,20 @@ func (c *Client) initSession(ctx context.Context, entry, token string, creds Cre
 	if err != nil {
 		return "", err
 	}
-	if _, err := readResponse(resp); err != nil {
+	data, err := readResponse(resp)
+	if err != nil {
 		return "", err
 	}
 	finalURL := resp.Request.URL.String()
 	if before, _, ok := strings.Cut(finalURL, "/iptvepg"); ok {
-		return before, nil
+		if before != strings.TrimRight(entry, "/") {
+			return before, nil
+		}
+	}
+	// ZTE portals commonly return a 200 HTML/JavaScript page which points the
+	// STB at a load-balanced EPG host instead of issuing an HTTP redirect.
+	if match := epgHostRE.FindSubmatch(data); match != nil {
+		return strings.TrimRight(string(match[1]), "/"), nil
 	}
 	return strings.TrimRight(entry, "/"), nil
 }

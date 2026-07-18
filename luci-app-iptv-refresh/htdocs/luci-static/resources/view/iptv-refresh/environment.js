@@ -66,7 +66,7 @@ var DEFAULTS = {
 	HB_EPG_ENTRY: 'auto',
 	HB_EASIP: 'auto',
 	HB_NETWORKID: 'auto',
-	HB_BIND_INTERFACE: 'eth3.3927',
+	HB_BIND_INTERFACE: 'auto',
 	HB_TIMEOUT: '20'
 };
 
@@ -273,7 +273,7 @@ return view.extend({
 		addValue(s, 'provider', 'HB_EASIP', _('EAS IP'), _('Use auto to prefer captured values.'), null, 'auto');
 		addValue(s, 'provider', 'HB_NETWORKID', _('Network ID'), _('Use auto to prefer captured values.'), null, 'auto');
 		addValue(s, 'provider', 'HB_CITYCODE', _('City code'));
-		addValue(s, 'provider', 'HB_BIND_INTERFACE', _('Provider bind interface'), _('Interface used for provider HTTP requests; use none to follow the routing table.'), null, DEFAULTS.HB_BIND_INTERFACE);
+		addValue(s, 'provider', 'HB_BIND_INTERFACE', _('Provider HTTP interface override'), _('Use auto to follow the IPTV interface, none to follow the routing table, or enter a specific device name.'), null, DEFAULTS.HB_BIND_INTERFACE);
 		addValue(s, 'provider', 'HB_BIND_SOURCE_IP', _('Provider source IP'));
 		addValue(s, 'provider', 'HB_USER_AGENT', _('Provider User-Agent'));
 		addValue(s, 'provider', 'HB_TIMEOUT', _('Provider HTTP timeout'), _('Seconds.'), 'uinteger', '20');

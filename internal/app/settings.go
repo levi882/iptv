@@ -36,17 +36,18 @@ type Settings struct {
 	EPGReplaceName   bool
 	XTvgURL          string
 
-	TokenServer    string
-	PlatformOrigin string
-	EPGEntry       string
-	EPGFallbacks   []string
-	EASIP          string
-	NetworkID      string
-	CityCode       string
-	BindInterface  string
-	BindSourceIP   string
-	UserAgent      string
-	HBTimeout      time.Duration
+	TokenServer           string
+	PlatformOrigin        string
+	EPGEntry              string
+	EPGFallbacks          []string
+	EASIP                 string
+	NetworkID             string
+	CityCode              string
+	BindInterface         string
+	BindInterfaceExplicit bool
+	BindSourceIP          string
+	UserAgent             string
+	HBTimeout             time.Duration
 
 	IGMPHTTPPrefix    string
 	R2HBaseURL        string
@@ -99,10 +100,20 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 	if keepUnmatched != "append" && keepUnmatched != "drop" {
 		return Settings{}, nil, fmt.Errorf("KEEP_UNMATCHED must be append or drop")
 	}
+	captureInterface := env.String("IFACE", "eth3.3927")
+	bindInterface := strings.TrimSpace(env["HB_BIND_INTERFACE"])
+	bindInterfaceExplicit := bindInterface != "" && !strings.EqualFold(bindInterface, "auto")
+	switch {
+	case bindInterface == "" || strings.EqualFold(bindInterface, "auto"):
+		bindInterface = captureInterface
+	case strings.EqualFold(bindInterface, "none") || strings.EqualFold(bindInterface, "off"):
+		bindInterface = ""
+	}
+
 	s := Settings{
 		RepoRoot: repoRoot, EnvFile: envPath,
 		CredsFile:      env.String("CREDS_FILE", "/etc/iptv-refresh/hb.creds.env"),
-		Interface:      env.String("IFACE", "eth3.3927"),
+		Interface:      captureInterface,
 		CaptureTimeout: time.Duration(env.Int("CAPTURE_TIMEOUT", 180)) * time.Second,
 		CaptureDump:    env.String("DUMP_PATH", "/tmp/stb_capture.raw"), TokenHost: "121.60.255.37",
 		OutputPath:         env.String("OUTPUT_PATH", filepath.Join(repoRoot, "config", "local", "local_stb.m3u")),
@@ -115,7 +126,7 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		TokenServer: env.String("HB_TOKEN_SERVER", "http://121.60.255.37:4338"), PlatformOrigin: env.String("HB_PLATFORM_ORIGIN", "http://121.60.255.6:8080"),
 		EPGEntry: env.String("HB_EPG_ENTRY", "http://121.60.255.4:8080"), EPGFallbacks: splitList(env["HB_EPG_ENTRY_FALLBACKS"]),
 		EASIP: env.String("HB_EASIP", "121.60.255.4"), NetworkID: env.String("HB_NETWORKID", "1"), CityCode: env["HB_CITYCODE"],
-		BindInterface: env.String("HB_BIND_INTERFACE", env.String("IFACE", "eth3.3927")), BindSourceIP: env["HB_BIND_SOURCE_IP"],
+		BindInterface: bindInterface, BindInterfaceExplicit: bindInterfaceExplicit, BindSourceIP: env["HB_BIND_SOURCE_IP"],
 		UserAgent: env["HB_USER_AGENT"], HBTimeout: time.Duration(env.Int("HB_TIMEOUT", 20)) * time.Second,
 		IGMPHTTPPrefix: env["IGMP_HTTP_PREFIX"], R2HBaseURL: env["R2H_BASE_URL"], R2HToken: env["R2H_TOKEN"],
 		R2HIGMPPath: env.String("R2H_IGMP_PATH", "udp"), R2HAddFCC: env.Bool("R2H_ADD_FCC", false), R2HFCCTYPE: env.String("R2H_FCC_TYPE", "telecom"),
@@ -126,9 +137,6 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		LogoMatchThreshold: env.Float("LOGO_MATCH_THRESHOLD", .75), LocalLogoCache: env.Bool("LOCAL_LOGO_CACHE", false),
 		LocalLogoDir: env.String("LOCAL_LOGO_DIR", "/www/iptv_logo"), LocalLogoURLBase: env["LOCAL_LOGO_URL_BASE"], LocalLogoTimeout: time.Duration(env.Int("LOCAL_LOGO_TIMEOUT", 20)) * time.Second,
 		GroupBy51ZMT: env.Bool("GROUP_BY_51ZMT", false), DisplayNameMode: env.String("DISPLAY_NAME_MODE", "name"), UseCache: env.Bool("USE_CACHE", false),
-	}
-	if s.BindInterface == "none" || s.BindInterface == "off" {
-		s.BindInterface = ""
 	}
 	s.TokenHost = tokenHost(s.TokenServer)
 	if err := s.Validate(); err != nil {

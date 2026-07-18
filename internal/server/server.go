@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,28 +29,46 @@ type Status struct {
 type Manager struct {
 	mu       sync.RWMutex
 	status   Status
-	runner   app.Runner
+	run      func(context.Context, app.Settings) (app.Report, error)
 	settings app.Settings
 }
 
 func NewManager(runner app.Runner, settings app.Settings) *Manager {
-	return &Manager{runner: runner, settings: settings}
+	return &Manager{run: runner.Run, settings: settings}
 }
 
 func (m *Manager) Trigger(interfaceName string) error {
+	return m.TriggerWithOptions(TriggerOptions{Interface: interfaceName})
+}
+
+type TriggerOptions struct {
+	Interface string
+	Capture   bool
+}
+
+func (m *Manager) TriggerWithOptions(options TriggerOptions) error {
 	m.mu.Lock()
 	if m.status.Running {
 		m.mu.Unlock()
 		return runlock.ErrAlreadyRunning
 	}
 	settings := m.settings
-	if interfaceName != "" {
-		settings.Interface = interfaceName
+	settings.SkipCapture = !options.Capture
+	if options.Interface != "" {
+		settings.Interface = options.Interface
+		if !settings.BindInterfaceExplicit {
+			settings.BindInterface = options.Interface
+		}
 	}
-	m.status = Status{Running: true, StartedAt: time.Now()}
+	status := m.status
+	status.Running = true
+	status.StartedAt = time.Now()
+	status.FinishedAt = time.Time{}
+	status.LastError = ""
+	m.status = status
 	m.mu.Unlock()
 	go func() {
-		report, err := m.runner.Run(context.Background(), settings)
+		report, err := m.run(context.Background(), settings)
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		m.status.Running = false
@@ -144,7 +163,16 @@ func Handler(config Config) http.Handler {
 		if iface == "" {
 			iface = config.DefaultIface
 		}
-		if err := config.Manager.Trigger(iface); err != nil {
+		capture := false
+		if value := r.URL.Query().Get("capture"); value != "" {
+			var err error
+			capture, err = strconv.ParseBool(value)
+			if err != nil {
+				jsonResponse(w, http.StatusBadRequest, map[string]any{"ok": false, "msg": "capture must be true, false, 1, or 0"})
+				return
+			}
+		}
+		if err := config.Manager.TriggerWithOptions(TriggerOptions{Interface: iface, Capture: capture}); err != nil {
 			if errors.Is(err, runlock.ErrAlreadyRunning) {
 				jsonResponse(w, http.StatusConflict, map[string]any{"ok": false, "msg": "already running"})
 				return
@@ -152,8 +180,12 @@ func Handler(config Config) http.Handler {
 			jsonResponse(w, http.StatusInternalServerError, map[string]any{"ok": false, "msg": err.Error()})
 			return
 		}
-		logger.Printf("refresh started from %s on interface %s", r.RemoteAddr, iface)
-		jsonResponse(w, http.StatusAccepted, map[string]any{"ok": true, "msg": "started"})
+		mode := "saved credentials"
+		if capture {
+			mode = "credential capture"
+		}
+		logger.Printf("refresh started from %s on interface %s using %s", r.RemoteAddr, iface, mode)
+		jsonResponse(w, http.StatusAccepted, map[string]any{"ok": true, "msg": "started", "capture": capture})
 	})
 	mux.HandleFunc("/playlist", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !allowed(r) || !authorized(r) {

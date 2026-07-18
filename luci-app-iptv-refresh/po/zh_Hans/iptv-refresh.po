@@ -43,6 +43,9 @@ msgstr "在本地缓存台标"
 msgid "Capture dump path"
 msgstr "抓包转储路径"
 
+msgid "Capture credentials and refresh"
+msgstr "重新抓取凭据并刷新"
+
 msgid "Captured credentials file"
 msgstr "已捕获凭据文件"
 
@@ -73,8 +76,14 @@ msgstr "城市代码"
 msgid "Command failed"
 msgstr "命令执行失败"
 
+msgid "Completed"
+msgstr "已完成"
+
 msgid "Credential capture timeout"
 msgstr "凭据捕获超时"
+
+msgid "Credential capture and playlist refresh started. Keep the STB powered on."
+msgstr "已开始抓取凭据并刷新播放列表，请保持机顶盒开机。"
 
 msgid "Current hb.env"
 msgstr "当前 hb.env"
@@ -130,6 +139,9 @@ msgstr "环境配置已保存。"
 msgid "FCC type"
 msgstr "FCC 类型"
 
+msgid "Failed"
+msgstr "失败"
+
 msgid "Finished at"
 msgstr "完成时间"
 
@@ -166,11 +178,11 @@ msgstr "空闲"
 msgid "Infer group-title values from the 51zmt reference playlist."
 msgstr "根据 51zmt 参考播放列表推断 group-title 值。"
 
-msgid "Interface used for STB credential capture and provider access."
-msgstr "用于捕获机顶盒凭据及访问运营商网络的接口。"
+msgid "Interface used for STB credential capture. Provider HTTP requests follow this interface unless overridden under Environment."
+msgstr "用于捕获机顶盒凭据。除非在环境页面中覆盖，否则运营商 HTTP 请求也使用此接口。"
 
-msgid "Interface used for provider HTTP requests; use none to follow the routing table."
-msgstr "运营商 HTTP 请求所用接口；设为 none 时使用路由表。"
+msgid "Use auto to follow the IPTV interface, none to follow the routing table, or enter a specific device name."
+msgstr "使用 auto 跟随 IPTV 接口，使用 none 按系统路由表选择出口，或填写指定设备名称。"
 
 msgid "Keep original names"
 msgstr "保留原名称"
@@ -232,6 +244,9 @@ msgstr "网络 ID"
 msgid "No matching log entries."
 msgstr "没有匹配的日志记录。"
 
+msgid "Not run"
+msgstr "尚未运行"
+
 msgid "Only these source addresses may call status, refresh, and playlist endpoints. Keep loopback entries for LuCI integration."
 msgstr "仅允许这些源地址调用状态、刷新和播放列表端点。请保留环回地址，以便 LuCI 正常集成。"
 
@@ -274,6 +289,9 @@ msgstr "播放列表路径"
 msgid "Playlist refresh started."
 msgstr "已开始刷新播放列表。"
 
+msgid "Playlist refresh started using saved credentials."
+msgstr "已使用保存的凭据开始刷新播放列表。"
+
 msgid "Provider & capture"
 msgstr "运营商与捕获"
 
@@ -289,8 +307,8 @@ msgstr "运营商 HTTP 超时"
 msgid "Provider User-Agent"
 msgstr "运营商 User-Agent"
 
-msgid "Provider bind interface"
-msgstr "运营商绑定接口"
+msgid "Provider HTTP interface override"
+msgstr "运营商 HTTP 接口覆盖"
 
 msgid "Provider name"
 msgstr "运营商名称"
@@ -324,6 +342,12 @@ msgstr "最近日志"
 
 msgid "Refresh playlist"
 msgstr "刷新播放列表"
+
+msgid "Refresh using saved credentials"
+msgstr "使用已保存凭据刷新"
+
+msgid "Refresh result"
+msgstr "刷新结果"
 
 msgid "Refresh state"
 msgstr "刷新状态"
@@ -408,6 +432,9 @@ msgstr "令牌由后端管理，不会显示在 LuCI 中。"
 
 msgid "Timeshift channels"
 msgstr "回看频道数"
+
+msgid "The normal refresh does not require the STB. Use credential capture only after saved credentials expire, and keep the STB powered on while capturing."
+msgstr "普通刷新不需要开启机顶盒。仅在已保存凭据失效后重新抓取，抓取期间请保持机顶盒开机。"
 
 msgid "Token server"
 msgstr "令牌服务器"

@@ -1,13 +1,16 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"iptv/internal/app"
 )
@@ -31,6 +34,73 @@ func TestHandlerAuthAndHealth(t *testing.T) {
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("refresh status = %d", recorder.Code)
+	}
+}
+
+func TestRefreshModesAndFailedRunPreservesLastReport(t *testing.T) {
+	settingsSeen := make(chan app.Settings, 2)
+	manager := NewManager(app.Runner{}, app.Settings{Interface: "default", BindInterface: "default"})
+	manager.run = func(_ context.Context, settings app.Settings) (app.Report, error) {
+		settingsSeen <- settings
+		if settings.SkipCapture {
+			return app.Report{Channels: 42, OutputPath: "/tmp/playlist.m3u"}, nil
+		}
+		return app.Report{}, errors.New("capture timed out")
+	}
+	handler := Handler(Config{Token: "secret", Manager: manager})
+
+	request := func(target string) {
+		req := httptest.NewRequest(http.MethodPost, target, nil)
+		req.Header.Set("Authorization", "Bearer secret")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		if recorder.Code != http.StatusAccepted {
+			t.Fatalf("refresh %s status = %d, body = %s", target, recorder.Code, recorder.Body.String())
+		}
+	}
+
+	request("/refresh?iface=iptv0")
+	first := <-settingsSeen
+	if !first.SkipCapture || first.Interface != "iptv0" || first.BindInterface != "iptv0" {
+		t.Fatalf("saved-credential settings = %+v", first)
+	}
+	waitForManager(t, manager)
+	if status := manager.Status(); status.Report == nil || status.Report.Channels != 42 || status.LastError != "" {
+		t.Fatalf("successful status = %+v", status)
+	}
+
+	request("/refresh?iface=iptv1&capture=1")
+	second := <-settingsSeen
+	if second.SkipCapture || second.Interface != "iptv1" || second.BindInterface != "iptv1" {
+		t.Fatalf("capture settings = %+v", second)
+	}
+	waitForManager(t, manager)
+	status := manager.Status()
+	if status.Report == nil || status.Report.Channels != 42 || status.LastError != "capture timed out" {
+		t.Fatalf("failed status did not preserve report: %+v", status)
+	}
+}
+
+func waitForManager(t *testing.T, manager *Manager) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for manager.Status().Running && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if manager.Status().Running {
+		t.Fatal("manager did not finish")
+	}
+}
+
+func TestRefreshRejectsInvalidCaptureMode(t *testing.T) {
+	manager := NewManager(app.Runner{}, app.Settings{})
+	handler := Handler(Config{Token: "secret", Manager: manager})
+	req := httptest.NewRequest(http.MethodPost, "/refresh?capture=sometimes", nil)
+	req.Header.Set("Authorization", "Bearer secret")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("invalid capture status = %d, body = %s", recorder.Code, recorder.Body.String())
 	}
 }
 

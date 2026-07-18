@@ -24,7 +24,7 @@ return view.extend({
 		o.default = '1';
 		o.rmempty = false;
 
-		o = s.taboption('general', widgets.DeviceSelect, 'iface', _('IPTV interface'), _('Interface used for STB credential capture and provider access.'));
+		o = s.taboption('general', widgets.DeviceSelect, 'iface', _('IPTV interface'), _('Interface used for STB credential capture. Provider HTTP requests follow this interface unless overridden under Environment.'));
 		o.default = 'eth3.3927';
 		o.rmempty = false;
 		o.noaliases = false;

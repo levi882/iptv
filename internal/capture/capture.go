@@ -58,6 +58,7 @@ var patterns = map[string]*regexp.Regexp{
 
 var configTokenPattern = regexp.MustCompile(`CTCSetConfig\('UserToken','([_A-Za-z0-9-]+)'`)
 var channelTokenPattern = regexp.MustCompile(`GetChannelList\?UserToken=([_A-Za-z0-9-]+)`)
+var tokenServerPattern = regexp.MustCompile(`(?i)(?:Host:\s*|https?://)([0-9]+(?:\.[0-9]+){3}):4338`)
 
 func lastMatch(re *regexp.Regexp, raw []byte) string {
 	matches := re.FindAllSubmatch(raw, -1)
@@ -92,6 +93,9 @@ func Parse(raw []byte, fallback config.Env, tokenHost string) config.Env {
 		}
 		return -1
 	}, out["HB_USER_TOKEN"])
+	if capturedTokenHost := lastMatch(tokenServerPattern, raw); capturedTokenHost != "" {
+		tokenHost = capturedTokenHost
+	}
 	if tokenHost == "" {
 		tokenHost = "121.60.255.37"
 	}
@@ -158,9 +162,6 @@ func Run(ctx context.Context, opts Options) (config.Env, error) {
 	if opts.Interface == "" {
 		opts.Interface = "any"
 	}
-	if opts.TokenHost == "" {
-		opts.TokenHost = "121.60.255.37"
-	}
 	if opts.Timeout <= 0 {
 		opts.Timeout = 180 * time.Second
 	}
@@ -169,7 +170,9 @@ func Run(ctx context.Context, opts Options) (config.Env, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, opts.Timeout)
 	defer cancel()
-	filter := fmt.Sprintf("tcp and ((host %s and port 4338) or port 8080)", opts.TokenHost)
+	// The provider may move GetUserToken between adjacent :4338 hosts. Capture
+	// the service port itself and let Parse discover the host from the request.
+	filter := "tcp and (port 4338 or port 8080)"
 	cmd := exec.CommandContext(ctx, opts.TCPDump, "-i", opts.Interface, "-s0", "-A", filter)
 	var output safeBuffer
 	cmd.Stdout = &output
