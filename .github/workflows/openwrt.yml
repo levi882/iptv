@@ -49,8 +49,8 @@ jobs:
         run: |
           curl --fail --location --retry 3 "$OPENWRT_BASE_URL/config.buildinfo" --output "$SDK_DIR/.config"
           cd "$SDK_DIR"
-          ./scripts/feeds update packages luci
-          ./scripts/feeds install golang
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
       - name: Build backend, LuCI, and Simplified Chinese packages
         shell: bash
