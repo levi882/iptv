@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/mingw64/bin
 export PATH
 
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
@@ -10,6 +10,16 @@ trap 'rm -rf "$TEST_DIR"' EXIT HUP INT TERM
 
 sh -n "$ROOT/openwrt/files/iptv-refresh.init"
 sh -n "$ROOT/openwrt/files/install-bundle.sh"
+sh -n "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci"
+sh -n "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
+
+for helper in iptv-refresh-luci iptv-refresh-luci-action; do
+	mode="$(git -C "$ROOT" ls-files -s -- "luci-app-iptv-refresh/root/usr/libexec/$helper" | awk '{print $1}')"
+	[ "$mode" = 100755 ] || {
+		echo "LuCI helper is not executable in Git: $helper ($mode)" >&2
+		exit 1
+	}
+done
 
 . "$ROOT/openwrt/files/iptv-refresh.init"
 

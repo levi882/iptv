@@ -56,6 +56,11 @@ cp "$ROOT/luci-app-iptv-refresh/Makefile" "$LUCI_PACKAGE_DIR/Makefile"
 cp -R "$ROOT/luci-app-iptv-refresh/htdocs" "$LUCI_PACKAGE_DIR/htdocs"
 cp -R "$ROOT/luci-app-iptv-refresh/po" "$LUCI_PACKAGE_DIR/po"
 cp -R "$ROOT/luci-app-iptv-refresh/root" "$LUCI_PACKAGE_DIR/root"
+# luci.mk preserves the modes under root/. Make the RPC helpers executable
+# explicitly so Windows checkouts cannot turn them into 0644 package files.
+chmod 0755 \
+	"$LUCI_PACKAGE_DIR/root/usr/libexec/iptv-refresh-luci" \
+	"$LUCI_PACKAGE_DIR/root/usr/libexec/iptv-refresh-luci-action"
 
 # The SDK package index does not notice a newly added package directory solely
 # from the child Makefile timestamp. Refresh the generated package metadata
