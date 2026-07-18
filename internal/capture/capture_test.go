@@ -36,3 +36,15 @@ func TestCapturedEnoughRequiresFreshLogin(t *testing.T) {
 		t.Fatal("fresh login plus cached device fields should stop capture")
 	}
 }
+
+func TestSafeBufferRetainsBoundedTail(t *testing.T) {
+	buffer := newSafeBuffer(5)
+	_, _ = buffer.Write([]byte("abc"))
+	_, _ = buffer.Write([]byte("def"))
+	if got := string(buffer.BytesCopy()); got != "bcdef" {
+		t.Fatalf("buffer tail = %q, want bcdef", got)
+	}
+	if !buffer.Truncated() {
+		t.Fatal("buffer did not report truncation")
+	}
+}

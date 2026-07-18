@@ -1,11 +1,10 @@
 #!/bin/sh
 set -eu
 
-PACKAGE=${1:-/tmp/iptv-refresh-0.1.0-r7.apk}
+PACKAGE=${1:-/tmp/iptv-refresh-0.1.0-r8.apk}
 MODE=${2:-}
 EXPECTED_RELEASE=25.12.5
 EXPECTED_ARCH=x86_64
-EXPECTED_SHA256=6bd5bdaed2b638b0540ce5519d319bae41ef2fda28ae9cfaf297aa498bc9481b
 CONFIG_DIR=/etc/iptv-refresh
 
 usage() {
@@ -41,10 +40,21 @@ command -v apk >/dev/null 2>&1 || {
 	exit 1
 }
 
+SUMS_FILE="$(dirname "$PACKAGE")/SHA256SUMS"
+[ -r "$SUMS_FILE" ] || {
+	echo "ERROR: checksum manifest is not readable: $SUMS_FILE" >&2
+	exit 1
+}
+package_name="$(basename "$PACKAGE")"
+expected_sha256="$(awk -v wanted="$package_name" '{ name=$2; sub(/^\.\//, "", name); if (name == wanted) { print $1; exit } }' "$SUMS_FILE")"
+[ -n "$expected_sha256" ] || {
+	echo "ERROR: package is missing from $SUMS_FILE: $package_name" >&2
+	exit 1
+}
 actual_sha256="$(sha256sum "$PACKAGE" | awk '{print $1}')"
-[ "$actual_sha256" = "$EXPECTED_SHA256" ] || {
+[ "$actual_sha256" = "$expected_sha256" ] || {
 	echo "ERROR: package SHA256 mismatch" >&2
-	echo "expected: $EXPECTED_SHA256" >&2
+	echo "expected: $expected_sha256" >&2
 	echo "actual:   $actual_sha256" >&2
 	exit 1
 }
@@ -67,7 +77,7 @@ token="$(head -n 1 "$CONFIG_DIR/token" 2>/dev/null || true)"
 	echo "ERROR: package installation did not generate an API token" >&2
 	exit 1
 }
-unset token actual_sha256
+unset token actual_sha256 expected_sha256 package_name SUMS_FILE
 
 /usr/bin/iptv-refresh version
 

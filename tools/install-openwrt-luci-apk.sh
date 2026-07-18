@@ -1,8 +1,8 @@
 #!/bin/sh
 set -eu
 
-PACKAGE=${1:-/tmp/luci-app-iptv-refresh-0.1.0-r8.apk}
-I18N_PACKAGE=/tmp/luci-i18n-iptv-refresh-zh-cn-0.1.0-r8.apk
+PACKAGE=${1:-/tmp/luci-app-iptv-refresh-0.1.0-r9.apk}
+I18N_PACKAGE=/tmp/luci-i18n-iptv-refresh-zh-cn-0.1.0-r9.apk
 MODE=
 case "${2:-}" in
 	--no-reload) MODE=--no-reload ;;
@@ -11,8 +11,6 @@ case "${2:-}" in
 esac
 EXPECTED_RELEASE=25.12.5
 EXPECTED_ARCH=x86_64
-EXPECTED_SHA256=d01fe0d8ea960e1374627de4a733c68530159b35d03e98e3fb5a5ef5c7afb62c
-EXPECTED_I18N_SHA256=21a253503966f6a152b6ecaa10ee5735beda6637fe6e986556e7040ef834b67e
 
 [ "$#" -le 3 ] || {
 	echo "Usage: $0 [luci-package.apk] [i18n-package.apk] [--no-reload]" >&2
@@ -51,26 +49,46 @@ command -v apk >/dev/null 2>&1 || {
 	exit 1
 }
 
+SUMS_FILE="$(dirname "$PACKAGE")/SHA256SUMS"
+[ -r "$SUMS_FILE" ] || {
+	echo "ERROR: checksum manifest is not readable: $SUMS_FILE" >&2
+	exit 1
+}
+checksum_for() {
+	package_name="$(basename "$1")"
+	awk -v wanted="$package_name" '{ name=$2; sub(/^\.\//, "", name); if (name == wanted) { print $1; exit } }' "$SUMS_FILE"
+}
+
+expected_sha256="$(checksum_for "$PACKAGE")"
+[ -n "$expected_sha256" ] || {
+	echo "ERROR: package is missing from $SUMS_FILE: $PACKAGE" >&2
+	exit 1
+}
 actual_sha256="$(sha256sum "$PACKAGE" | awk '{print $1}')"
-[ "$actual_sha256" = "$EXPECTED_SHA256" ] || {
+[ "$actual_sha256" = "$expected_sha256" ] || {
 	echo "ERROR: package SHA256 mismatch" >&2
-	echo "expected: $EXPECTED_SHA256" >&2
+	echo "expected: $expected_sha256" >&2
 	echo "actual:   $actual_sha256" >&2
 	exit 1
 }
-unset actual_sha256
+unset actual_sha256 expected_sha256
 
+expected_i18n_sha256="$(checksum_for "$I18N_PACKAGE")"
+[ -n "$expected_i18n_sha256" ] || {
+	echo "ERROR: package is missing from $SUMS_FILE: $I18N_PACKAGE" >&2
+	exit 1
+}
 actual_i18n_sha256="$(sha256sum "$I18N_PACKAGE" | awk '{print $1}')"
-[ "$actual_i18n_sha256" = "$EXPECTED_I18N_SHA256" ] || {
+[ "$actual_i18n_sha256" = "$expected_i18n_sha256" ] || {
 	echo "ERROR: i18n package SHA256 mismatch" >&2
-	echo "expected: $EXPECTED_I18N_SHA256" >&2
+	echo "expected: $expected_i18n_sha256" >&2
 	echo "actual:   $actual_i18n_sha256" >&2
 	exit 1
 }
-unset actual_i18n_sha256
+unset actual_i18n_sha256 expected_i18n_sha256 package_name SUMS_FILE
 
 apk info -e iptv-refresh >/dev/null 2>&1 || {
-	echo "ERROR: install iptv-refresh-0.1.0-r7.apk first" >&2
+	echo "ERROR: install iptv-refresh-0.1.0-r8.apk first" >&2
 	exit 1
 }
 

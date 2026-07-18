@@ -10,8 +10,11 @@ trap 'rm -rf "$TEST_DIR"' EXIT HUP INT TERM
 
 sh -n "$ROOT/openwrt/files/iptv-refresh.init"
 sh -n "$ROOT/openwrt/files/install-bundle.sh"
+sh -n "$ROOT/tools/install-openwrt-apk.sh"
+sh -n "$ROOT/tools/install-openwrt-luci-apk.sh"
 sh -n "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci"
 sh -n "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
+grep -q -- '--provider-iface "$provider_iface"' "$ROOT/openwrt/files/iptv-refresh.init"
 
 for helper in iptv-refresh-luci iptv-refresh-luci-action; do
 	mode="$(git -C "$ROOT" ls-files -s -- "luci-app-iptv-refresh/root/usr/libexec/$helper" | awk '{print $1}')"

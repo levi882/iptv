@@ -1,7 +1,6 @@
 package capture
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -26,21 +25,64 @@ type Options struct {
 	Fallback   config.Env
 }
 
+const (
+	maxCaptureBytes    = 4 << 20
+	maxDiagnosticBytes = 64 << 10
+)
+
 type safeBuffer struct {
 	sync.Mutex
-	bytes.Buffer
+	data      []byte
+	start     int
+	size      int
+	truncated bool
+}
+
+func newSafeBuffer(limit int) *safeBuffer {
+	return &safeBuffer{data: make([]byte, limit)}
 }
 
 func (b *safeBuffer) Write(p []byte) (int, error) {
 	b.Lock()
 	defer b.Unlock()
-	return b.Buffer.Write(p)
+	written := len(p)
+	if len(b.data) == 0 || written == 0 {
+		return written, nil
+	}
+	if len(p) >= len(b.data) {
+		copy(b.data, p[len(p)-len(b.data):])
+		b.start = 0
+		b.size = len(b.data)
+		b.truncated = true
+		return written, nil
+	}
+	if overflow := b.size + len(p) - len(b.data); overflow > 0 {
+		b.start = (b.start + overflow) % len(b.data)
+		b.size -= overflow
+		b.truncated = true
+	}
+	end := (b.start + b.size) % len(b.data)
+	first := min(len(p), len(b.data)-end)
+	copy(b.data[end:], p[:first])
+	copy(b.data, p[first:])
+	b.size += len(p)
+	return written, nil
 }
 
 func (b *safeBuffer) BytesCopy() []byte {
 	b.Lock()
 	defer b.Unlock()
-	return append([]byte(nil), b.Buffer.Bytes()...)
+	result := make([]byte, b.size)
+	first := min(b.size, len(b.data)-b.start)
+	copy(result, b.data[b.start:b.start+first])
+	copy(result[first:], b.data[:b.size-first])
+	return result
+}
+
+func (b *safeBuffer) Truncated() bool {
+	b.Lock()
+	defer b.Unlock()
+	return b.truncated
 }
 
 var patterns = map[string]*regexp.Regexp{
@@ -174,9 +216,10 @@ func Run(ctx context.Context, opts Options) (config.Env, error) {
 	// the service port itself and let Parse discover the host from the request.
 	filter := "tcp and (port 4338 or port 8080)"
 	cmd := exec.CommandContext(ctx, opts.TCPDump, "-i", opts.Interface, "-s0", "-A", filter)
-	var output safeBuffer
-	cmd.Stdout = &output
-	cmd.Stderr = io.Discard
+	output := newSafeBuffer(maxCaptureBytes)
+	diagnostics := newSafeBuffer(maxDiagnosticBytes)
+	cmd.Stdout = output
+	cmd.Stderr = diagnostics
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
@@ -198,25 +241,35 @@ func Run(ctx context.Context, opts Options) (config.Env, error) {
 				<-done
 			}
 			raw := output.BytesCopy()
-			return finish(raw, opts)
+			return finish(raw, output.Truncated(), opts)
 		case err := <-done:
 			raw := output.BytesCopy()
 			if err != nil && len(raw) == 0 {
-				return nil, err
+				detail := strings.TrimSpace(string(diagnostics.BytesCopy()))
+				if detail != "" {
+					return nil, fmt.Errorf("tcpdump failed: %w: %s", err, detail)
+				}
+				return nil, fmt.Errorf("tcpdump failed: %w", err)
 			}
-			return finish(raw, opts)
+			return finish(raw, output.Truncated(), opts)
 		}
 	}
 }
 
-func finish(raw []byte, opts Options) (config.Env, error) {
+func finish(raw []byte, truncated bool, opts Options) (config.Env, error) {
 	if opts.DumpPath != "" {
-		if err := os.MkdirAll(filepath.Dir(opts.DumpPath), 0o755); err == nil {
-			_ = os.WriteFile(opts.DumpPath, raw, 0o600)
+		if err := os.MkdirAll(filepath.Dir(opts.DumpPath), 0o755); err != nil {
+			return nil, fmt.Errorf("create capture dump directory: %w", err)
+		}
+		if err := os.WriteFile(opts.DumpPath, raw, 0o600); err != nil {
+			return nil, fmt.Errorf("write capture dump: %w", err)
 		}
 	}
 	env := Parse(raw, opts.Fallback, opts.TokenHost)
 	if env["HB_USER_ID"] == "" || (env["HB_AUTHENTICATOR"] == "" && env["HB_USER_TOKEN"] == "") {
+		if truncated {
+			return nil, fmt.Errorf("credential capture exceeded the %d MiB safety limit before a complete login was found; reduce unrelated port 8080 traffic and retry", maxCaptureBytes>>20)
+		}
 		return nil, fmt.Errorf("missing UserID and Authenticator/UserToken; ensure the STB logged in during capture")
 	}
 	if opts.OutputPath != "" {

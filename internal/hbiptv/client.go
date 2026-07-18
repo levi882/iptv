@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"iptv/internal/netbind"
+	"iptv/internal/redact"
 )
 
 const DefaultUserAgent = "B700-V2A|Mozilla|5.0|ztebw(Chrome)|1.2.0;Resolution(PAL,720p,1080i) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.63 Safari/535.7"
@@ -117,7 +118,8 @@ func readResponse(resp *http.Response) ([]byte, error) {
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP %s: %s", resp.Status, strings.TrimSpace(string(data[:min(len(data), 300)])))
+		body := redact.Sensitive(strings.TrimSpace(string(data[:min(len(data), 300)])))
+		return nil, fmt.Errorf("HTTP %s: %s", resp.Status, body)
 	}
 	return data, nil
 }
@@ -267,17 +269,20 @@ func (c *Client) Fetch(ctx context.Context, creds Credentials) (Result, error) {
 			return Result{}, err
 		}
 		host, err := c.initSession(ctx, entry, token, creds)
+		stage := "initialize session"
 		if err == nil {
+			stage = "authenticate portal"
 			err = c.portalAuth(ctx, host, token, creds)
 		}
 		if err == nil {
+			stage = "fetch channel list"
 			var frameset string
 			frameset, err = c.frameset(ctx, host)
 			if err == nil {
 				return Result{Frameset: frameset, EPGHost: host, Token: token}, nil
 			}
 		}
-		lastErr = fmt.Errorf("EPG entry %s: %w", entry, err)
+		lastErr = fmt.Errorf("EPG entry %s: %s: %s", redact.Sensitive(entry), stage, redact.Sensitive(err.Error()))
 	}
 	return Result{}, fmt.Errorf("all EPG entries failed: %w", lastErr)
 }

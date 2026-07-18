@@ -46,12 +46,29 @@ func (r Runner) logger() *log.Logger {
 }
 
 func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
+	if settings.RefreshTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, settings.RefreshTimeout)
+		defer cancel()
+	}
 	logger := r.logger()
 	lock, err := runlock.Acquire(filepath.Join(os.TempDir(), "iptv_refresh.lock"))
 	if err != nil {
 		return Report{}, err
 	}
 	defer lock.Release()
+	if settings.BindInterface != "" {
+		if _, err := net.InterfaceByName(settings.BindInterface); err != nil {
+			return Report{}, fmt.Errorf("provider HTTP interface %q is unavailable: %w", settings.BindInterface, err)
+		}
+		if settings.BindSourceIP == "" {
+			var err error
+			settings.BindSourceIP, err = interfaceIPv4(settings.BindInterface)
+			if err != nil {
+				return Report{}, err
+			}
+		}
+	}
 	creds, _ := config.Load(settings.CredsFile)
 	if creds == nil {
 		creds = config.Env{}
@@ -103,9 +120,6 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	settings.EASIP = resolveValue(settings.EASIP, creds["HB_EASIP"], "121.60.255.4")
 	settings.NetworkID = resolveValue(settings.NetworkID, creds["HB_NETWORKID"], "1")
 	settings.CityCode = resolveValue(settings.CityCode, creds["HB_CITYCODE"], "")
-	if settings.BindSourceIP == "" && settings.BindInterface != "" {
-		settings.BindSourceIP = interfaceIPv4(settings.BindInterface)
-	}
 	if fallback := snapshotEPGHost(settings.SnapshotPath); fallback != "" && fallback != settings.EPGEntry {
 		settings.EPGFallbacks = append(settings.EPGFallbacks, fallback)
 	}
@@ -279,18 +293,21 @@ func atomicWrite(path string, data []byte, mode os.FileMode) error {
 	return os.Rename(name, path)
 }
 
-func interfaceIPv4(name string) string {
+func interfaceIPv4(name string) (string, error) {
 	iface, err := net.InterfaceByName(name)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("provider HTTP interface %q is unavailable: %w", name, err)
 	}
-	addresses, _ := iface.Addrs()
+	addresses, err := iface.Addrs()
+	if err != nil {
+		return "", fmt.Errorf("read provider HTTP interface %q addresses: %w", name, err)
+	}
 	for _, address := range addresses {
 		if ip, _, err := net.ParseCIDR(address.String()); err == nil && ip.To4() != nil {
-			return ip.String()
+			return ip.String(), nil
 		}
 	}
-	return ""
+	return "", fmt.Errorf("provider HTTP interface %q has no IPv4 address; select the logical IPTV interface or set HB_BIND_INTERFACE=none", name)
 }
 
 var snapshotHostRE = regexp.MustCompile(`(http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:8080)/iptvepg`)

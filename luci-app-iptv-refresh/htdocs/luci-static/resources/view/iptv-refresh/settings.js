@@ -30,6 +30,14 @@ return view.extend({
 		o.noaliases = false;
 		o.noinactive = false;
 
+		o = s.taboption('general', widgets.DeviceSelect, 'provider_iface', _('Provider HTTP interface'), _('Interface used for provider authentication and channel downloads. Choose auto to follow the capture interface, or none to follow the routing table. An explicit HB_BIND_INTERFACE value under Environment takes precedence.'));
+		o.value('auto', _('Follow capture interface'));
+		o.value('none', _('Follow routing table'));
+		o.default = 'auto';
+		o.rmempty = false;
+		o.noaliases = false;
+		o.noinactive = false;
+
 		o = s.taboption('general', form.Value, 'listen_host', _('Listen address'));
 		o.default = '127.0.0.1';
 		o.datatype = 'ipaddr';

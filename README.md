@@ -35,18 +35,26 @@ The OpenWrt service listens on `127.0.0.1:9100` by default:
 ```text
 GET  /healthz
 GET  /status
-GET  /refresh?token=TOKEN&iface=eth3.3927
-POST /refresh?token=TOKEN&iface=eth3.3927
-POST /refresh?token=TOKEN&iface=eth3.3927&capture=1
-GET  /playlist?token=TOKEN
+POST /refresh?iface=eth3.3927
+POST /refresh?iface=eth3.3927&capture=1
+GET  /playlist
 ```
 
-`Authorization: Bearer TOKEN` can be used instead of putting the token in the
-URL. Refresh runs in the background; `/status` reports its last result. The
-normal `/refresh` route reuses the saved credentials, so Home Assistant and
-LuCI can refresh without waiting for the STB. Add `capture=1` only when the
-provider credentials have expired and the STB is powered on. A failed refresh
-keeps the previously generated playlist and the last successful report.
+The refresh and playlist routes require `Authorization: Bearer TOKEN`; tokens
+in URL query parameters are deliberately rejected so they cannot leak through
+access logs. Refresh runs in the background; `/status` reports its last result.
+The normal `/refresh` route reuses the saved credentials, so Home Assistant
+and LuCI can refresh without waiting for the STB. Add `capture=1` only when
+the provider credentials have expired and the STB is powered on. A failed
+refresh keeps the previously generated playlist and the last successful
+report.
+
+The capture interface and provider HTTP interface are separate settings. Use
+the raw VLAN or bridge interface that sees STB login traffic for capture, and
+the logical DHCP/PPPoE IPTV interface for provider HTTP. `auto` follows the
+capture interface; `none` follows the normal routing table. A provider HTTP
+interface without an IPv4 address is rejected immediately instead of waiting
+for the network timeout.
 
 The existing nginx routes for `/iptv/refresh` and `/iptv/healthz` continue to
 work. Optional routes for status and the generated playlist are:
@@ -139,13 +147,15 @@ The raw preview masks `R2H_TOKEN`.
 The LuCI browser code calls a narrowly permitted local helper; the API token is
 read by the Go process and is never returned to the browser.
 
-For the verified OpenWrt 25.12.5 `x86_64` artifacts in `dist/`, copy all three APKs
-and their guarded installers to the router and run:
+For OpenWrt 25.12.5 `x86_64` artifacts produced by the package workflow, place
+the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded
+installers to the router:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r7.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r8.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r8.apk `
+scp .\dist\iptv-refresh-0.1.0-r8.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r9.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r9.apk `
+  .\dist\SHA256SUMS `
   .\tools\install-openwrt-apk.sh `
   .\tools\install-openwrt-luci-apk.sh root@10.1.1.1:/tmp/
 ssh root@10.1.1.1 "sh /tmp/install-openwrt-apk.sh"

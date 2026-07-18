@@ -99,6 +99,24 @@ func loadWithOverrides(repo, envPath, credsPath, iface string) (app.Settings, er
 	return settings, nil
 }
 
+func applyProviderInterfaceOverride(settings *app.Settings, value string) {
+	if settings.BindInterfaceExplicit {
+		return
+	}
+	value = strings.TrimSpace(value)
+	switch {
+	case value == "" || strings.EqualFold(value, "auto"):
+		settings.BindInterface = settings.Interface
+		settings.BindInterfaceExplicit = false
+	case strings.EqualFold(value, "none") || strings.EqualFold(value, "off"):
+		settings.BindInterface = ""
+		settings.BindInterfaceExplicit = true
+	default:
+		settings.BindInterface = value
+		settings.BindInterfaceExplicit = true
+	}
+}
+
 func refreshCommand(args []string) error {
 	set, repo, envPath, credsPath, iface := commonFlags("refresh")
 	skipCapture := set.Bool("skip-capture", false, "reuse existing credentials")
@@ -146,6 +164,7 @@ func (s *stringList) Set(value string) error { *s = append(*s, value); return ni
 
 func serveCommand(args []string) error {
 	set, repo, envPath, credsPath, iface := commonFlags("serve")
+	providerIface := set.String("provider-iface", "auto", "provider HTTP interface: auto, none, or a device name")
 	host := set.String("host", "127.0.0.1", "listen host")
 	port := set.Int("port", defaultServicePort, "listen port")
 	token := set.String("token", "", "required API token")
@@ -169,6 +188,7 @@ func serveCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	applyProviderInterfaceOverride(&settings, *providerIface)
 	if len(allowed) == 0 {
 		allowed = []string{"127.0.0.1", "::1"}
 	}

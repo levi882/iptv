@@ -70,3 +70,32 @@ func TestInitSessionDiscoversPageRedirectHost(t *testing.T) {
 		t.Fatalf("host = %q", host)
 	}
 }
+
+func TestFetchRedactsCredentialsAndReportsStage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/iptvepg/function/index.jsp" {
+			http.Error(w, "UserToken=reflected-secret&UserID=reflected-user", http.StatusForbidden)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	client, err := New(Config{EPGEntry: server.URL, EASIP: "127.0.0.1", NetworkID: "1", Timeout: time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Fetch(context.Background(), Credentials{UserID: "subscriber-secret", STBID: "stb-secret", STBInfo: "info", UserToken: "token-secret"})
+	if err == nil {
+		t.Fatal("Fetch succeeded unexpectedly")
+	}
+	message := err.Error()
+	for _, secret := range []string{"subscriber-secret", "stb-secret", "token-secret", "reflected-secret", "reflected-user"} {
+		if strings.Contains(message, secret) {
+			t.Fatalf("error contains %q: %s", secret, message)
+		}
+	}
+	if !strings.Contains(message, "initialize session") || !strings.Contains(message, "[redacted]") {
+		t.Fatalf("error lacks safe stage information: %s", message)
+	}
+}

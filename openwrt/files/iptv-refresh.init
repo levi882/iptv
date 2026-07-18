@@ -45,7 +45,7 @@ ensure_token() {
 }
 
 start_service() {
-	local enabled repo_root env_file creds_file listen_host listen_port token_file iface token
+	local enabled repo_root env_file creds_file listen_host listen_port token_file iface provider_iface token
 	config_load iptv-refresh
 	config_get_bool enabled main enabled 1
 	[ "$enabled" -eq 1 ] || return 0
@@ -56,6 +56,7 @@ start_service() {
 	config_get listen_port main listen_port 9100
 	config_get token_file main token_file /etc/iptv-refresh/token
 	config_get iface main iface eth3.3927
+	config_get provider_iface main provider_iface auto
 	ensure_token "$token_file" || return 1
 	IFS= read -r token < "$token_file"
 	unset token
@@ -69,6 +70,7 @@ start_service() {
 	procd_append_param command --port "$listen_port"
 	procd_append_param command --token-file "$token_file"
 	procd_append_param command --iface "$iface"
+	procd_append_param command --provider-iface "$provider_iface"
 	config_list_foreach main allow_ip append_allow_ip
 	procd_set_param respawn 3600 5 5
 	procd_set_param stdout 1

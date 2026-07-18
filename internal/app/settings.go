@@ -16,6 +16,7 @@ type Settings struct {
 	Interface string
 
 	CaptureTimeout time.Duration
+	RefreshTimeout time.Duration
 	CaptureDump    string
 	TokenHost      string
 	SkipCapture    bool
@@ -115,7 +116,8 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		CredsFile:      env.String("CREDS_FILE", "/etc/iptv-refresh/hb.creds.env"),
 		Interface:      captureInterface,
 		CaptureTimeout: time.Duration(env.Int("CAPTURE_TIMEOUT", 180)) * time.Second,
-		CaptureDump:    env.String("DUMP_PATH", "/tmp/stb_capture.raw"), TokenHost: "121.60.255.37",
+		RefreshTimeout: time.Duration(env.Int("REFRESH_TIMEOUT", 300)) * time.Second,
+		CaptureDump:    env["DUMP_PATH"], TokenHost: "121.60.255.37",
 		OutputPath:         env.String("OUTPUT_PATH", filepath.Join(repoRoot, "config", "local", "local_stb.m3u")),
 		SnapshotOutputPath: env["R2H_SNAPSHOT_OUTPUT_PATH"], SnapshotPath: filepath.Join(repoRoot, "frameset_builder_latest.jsp"),
 		OutputFormat: env.String("OUTPUT_FORMAT", "auto"), Mode: env.String("MODE", "auto"),
@@ -150,6 +152,15 @@ func splitList(value string) []string {
 }
 
 func (s Settings) Validate() error {
+	if s.CaptureTimeout <= 0 {
+		return fmt.Errorf("CAPTURE_TIMEOUT must be greater than zero")
+	}
+	if s.RefreshTimeout <= 0 {
+		return fmt.Errorf("REFRESH_TIMEOUT must be greater than zero")
+	}
+	if s.HBTimeout <= 0 {
+		return fmt.Errorf("HB_TIMEOUT must be greater than zero")
+	}
 	if s.Mode != "auto" && s.Mode != "rtsp" && s.Mode != "igmp" {
 		return fmt.Errorf("MODE must be auto, rtsp, or igmp")
 	}

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"iptv/internal/app"
+	"iptv/internal/redact"
 	"iptv/internal/runlock"
 )
 
@@ -74,7 +75,7 @@ func (m *Manager) TriggerWithOptions(options TriggerOptions) error {
 		m.status.Running = false
 		m.status.FinishedAt = time.Now()
 		if err != nil {
-			m.status.LastError = err.Error()
+			m.status.LastError = redact.Sensitive(err.Error())
 			return
 		}
 		m.status.Report = &report
@@ -126,7 +127,7 @@ func Handler(config Config) http.Handler {
 		return config.AllowedIPs[host]
 	}
 	authorized := func(r *http.Request) bool {
-		provided := r.URL.Query().Get("token")
+		provided := ""
 		if header := r.Header.Get("Authorization"); strings.HasPrefix(strings.ToLower(header), "bearer ") {
 			provided = strings.TrimSpace(header[7:])
 		}
@@ -147,7 +148,7 @@ func Handler(config Config) http.Handler {
 		jsonResponse(w, http.StatusOK, map[string]any{"ok": true, "status": config.Manager.Status()})
 	})
 	mux.HandleFunc("/refresh", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		if r.Method != http.MethodPost {
 			jsonResponse(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "msg": "method not allowed"})
 			return
 		}

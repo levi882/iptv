@@ -471,3 +471,24 @@ msgstr "rtp2httpd 基础 URL"
 
 msgid "unknown"
 msgstr "未知"
+
+msgid "Provider HTTP interface"
+msgstr "运营商 HTTP 接口"
+
+msgid "Interface used for provider authentication and channel downloads. Choose auto to follow the capture interface, or none to follow the routing table. An explicit HB_BIND_INTERFACE value under Environment takes precedence."
+msgstr "用于运营商认证和频道下载的接口。选择 auto 将跟随抓包接口，选择 none 将使用系统路由表；环境页面中明确设置的 HB_BIND_INTERFACE 优先。"
+
+msgid "Follow capture interface"
+msgstr "跟随抓包接口"
+
+msgid "Follow routing table"
+msgstr "跟随系统路由表"
+
+msgid "Overall refresh timeout"
+msgstr "刷新总超时时间"
+
+msgid "Maximum seconds for one complete refresh, including credential capture."
+msgstr "一次完整刷新的最长秒数，包括凭据抓取。"
+
+msgid "Optional diagnostic file containing sensitive raw provider traffic. Leave empty for normal use."
+msgstr "可选的诊断文件，其中包含敏感的运营商原始流量；正常使用时请留空。"

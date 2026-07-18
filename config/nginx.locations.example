@@ -1,6 +1,7 @@
 # Nginx reverse proxy locations for IPTV Refresh.
 
 location = /iptv/refresh {
+    # Clients must use POST and send Authorization: Bearer <token>.
     proxy_pass http://127.0.0.1:9100/refresh$is_args$args;
     proxy_http_version 1.1;
     proxy_set_header Host $host;

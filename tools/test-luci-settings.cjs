@@ -35,6 +35,9 @@ const view = { extend: value => value };
 const translate = value => value;
 
 const source = fs.readFileSync(sourcePath, 'utf8');
+if (!source.includes("'provider_iface'") || !source.includes("'Follow routing table'")) {
+	throw new Error('Provider HTTP interface setting is missing');
+}
 const loadView = new Function('view', 'form', 'uci', 'widgets', '_', source);
 const app = loadView(view, form, uci, widgets, translate);
 

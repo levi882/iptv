@@ -20,7 +20,7 @@ var ENV_KEYS = [
 	'EPG_PUBLIC_FILE', 'EPG_COMPARE_SOURCE', 'EPG_REPLACE_NAME', 'X_TVG_URL',
 	'LOGO_MATCH_SOURCE', 'LOGO_URL_BASE', 'LOGO_OVERRIDES_FILE',
 	'LOGO_MATCH_THRESHOLD', 'LOCAL_LOGO_CACHE', 'LOCAL_LOGO_DIR',
-	'LOCAL_LOGO_URL_BASE', 'LOCAL_LOGO_TIMEOUT', 'CAPTURE_TIMEOUT', 'DUMP_PATH',
+	'LOCAL_LOGO_URL_BASE', 'LOCAL_LOGO_TIMEOUT', 'CAPTURE_TIMEOUT', 'REFRESH_TIMEOUT', 'DUMP_PATH',
 	'HB_TOKEN_SERVER', 'HB_PLATFORM_ORIGIN', 'HB_EPG_ENTRY',
 	'HB_EPG_ENTRY_FALLBACKS', 'HB_EASIP', 'HB_NETWORKID', 'HB_CITYCODE',
 	'HB_BIND_INTERFACE', 'HB_BIND_SOURCE_IP', 'HB_USER_AGENT', 'HB_TIMEOUT'
@@ -60,7 +60,8 @@ var DEFAULTS = {
 	LOCAL_LOGO_URL_BASE: 'http://10.1.1.1/iptv_logo',
 	LOCAL_LOGO_TIMEOUT: '20',
 	CAPTURE_TIMEOUT: '180',
-	DUMP_PATH: '/tmp/stb_capture.raw',
+	REFRESH_TIMEOUT: '300',
+	DUMP_PATH: '',
 	HB_TOKEN_SERVER: 'http://121.60.255.37:4338',
 	HB_PLATFORM_ORIGIN: 'auto',
 	HB_EPG_ENTRY: 'auto',
@@ -265,7 +266,8 @@ return view.extend({
 		o.depends('LOCAL_LOGO_CACHE', '1');
 
 		addValue(s, 'provider', 'CAPTURE_TIMEOUT', _('Credential capture timeout'), _('Seconds to wait for STB traffic.'), 'uinteger', '180');
-		addValue(s, 'provider', 'DUMP_PATH', _('Capture dump path'), null, null, '/tmp/stb_capture.raw');
+		addValue(s, 'provider', 'REFRESH_TIMEOUT', _('Overall refresh timeout'), _('Maximum seconds for one complete refresh, including credential capture.'), 'uinteger', '300');
+		addValue(s, 'provider', 'DUMP_PATH', _('Capture dump path'), _('Optional diagnostic file containing sensitive raw provider traffic. Leave empty for normal use.'));
 		addValue(s, 'provider', 'HB_TOKEN_SERVER', _('Token server'), null, null, DEFAULTS.HB_TOKEN_SERVER);
 		addValue(s, 'provider', 'HB_PLATFORM_ORIGIN', _('Platform origin'), _('Use auto to prefer captured values.'), null, 'auto');
 		addValue(s, 'provider', 'HB_EPG_ENTRY', _('Provider EPG entry'), _('Use auto to prefer captured values.'), null, 'auto');

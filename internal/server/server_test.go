@@ -37,6 +37,24 @@ func TestHandlerAuthAndHealth(t *testing.T) {
 	}
 }
 
+func TestRefreshRequiresPostAndAuthorizationHeader(t *testing.T) {
+	manager := NewManager(app.Runner{}, app.Settings{})
+	handler := Handler(Config{Token: "secret", Manager: manager})
+
+	request := func(method, target string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(method, target, nil)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, req)
+		return recorder
+	}
+	if recorder := request(http.MethodGet, "/refresh?token=secret"); recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET refresh status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+	if recorder := request(http.MethodPost, "/refresh?token=secret"); recorder.Code != http.StatusForbidden {
+		t.Fatalf("query-token refresh status = %d, body = %s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func TestRefreshModesAndFailedRunPreservesLastReport(t *testing.T) {
 	settingsSeen := make(chan app.Settings, 2)
 	manager := NewManager(app.Runner{}, app.Settings{Interface: "default", BindInterface: "default"})
@@ -78,6 +96,21 @@ func TestRefreshModesAndFailedRunPreservesLastReport(t *testing.T) {
 	status := manager.Status()
 	if status.Report == nil || status.Report.Channels != 42 || status.LastError != "capture timed out" {
 		t.Fatalf("failed status did not preserve report: %+v", status)
+	}
+}
+
+func TestFailedRunRedactsStatusError(t *testing.T) {
+	manager := NewManager(app.Runner{}, app.Settings{})
+	manager.run = func(context.Context, app.Settings) (app.Report, error) {
+		return app.Report{}, errors.New("request failed: UserToken=status-secret&UserID=user-secret")
+	}
+	if err := manager.Trigger(""); err != nil {
+		t.Fatal(err)
+	}
+	waitForManager(t, manager)
+	message := manager.Status().LastError
+	if strings.Contains(message, "status-secret") || strings.Contains(message, "user-secret") || !strings.Contains(message, "[redacted]") {
+		t.Fatalf("status error was not redacted: %s", message)
 	}
 }
 

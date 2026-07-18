@@ -61,6 +61,48 @@ func TestOfflineRefresh(t *testing.T) {
 	}
 }
 
+func TestRefreshRejectsUnavailableProviderInterface(t *testing.T) {
+	root := t.TempDir()
+	creds := filepath.Join(root, "hb.creds.env")
+	if err := os.WriteFile(creds, []byte("HB_USER_ID=u\nHB_STBID=AA\nHB_STBINFO=BB\nHB_USER_TOKEN=token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	settings := Settings{
+		RepoRoot: root, CredsFile: creds, SkipCapture: true,
+		BindInterface: "interface-that-does-not-exist", RefreshTimeout: time.Second,
+	}
+	_, err := (Runner{}).Run(context.Background(), settings)
+	if err == nil || !strings.Contains(err.Error(), "provider HTTP interface") || !strings.Contains(err.Error(), "unavailable") {
+		t.Fatalf("unexpected interface error: %v", err)
+	}
+}
+
+func TestRefreshHonorsOverallTimeout(t *testing.T) {
+	portal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer portal.Close()
+
+	root := t.TempDir()
+	creds := filepath.Join(root, "hb.creds.env")
+	if err := os.WriteFile(creds, []byte("HB_USER_ID=u\nHB_STBID=AA\nHB_STBINFO=BB\nHB_USER_TOKEN=token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	settings := Settings{
+		RepoRoot: root, CredsFile: creds, SkipCapture: true,
+		EPGEntry: portal.URL, EASIP: "127.0.0.1", NetworkID: "1",
+		HBTimeout: 3 * time.Second, RefreshTimeout: 50 * time.Millisecond,
+	}
+	started := time.Now()
+	_, err := (Runner{}).Run(context.Background(), settings)
+	if err == nil || !strings.Contains(err.Error(), "context deadline exceeded") {
+		t.Fatalf("unexpected timeout error: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("overall timeout took too long: %s", elapsed)
+	}
+}
+
 func TestCurrentGeneratedArtifactsParityWhenPresent(t *testing.T) {
 	repo, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
