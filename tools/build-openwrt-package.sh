@@ -46,7 +46,7 @@ rm -rf "$PACKAGE_DIR"
 mkdir -p "$PACKAGE_DIR/src"
 cp "$ROOT/openwrt/Makefile" "$PACKAGE_DIR/Makefile"
 cp -R "$ROOT/openwrt/files" "$PACKAGE_DIR/files"
-cp "$ROOT/go.mod" "$PACKAGE_DIR/src/go.mod"
+cp "$ROOT/go.mod" "$ROOT/go.sum" "$PACKAGE_DIR/src/"
 cp -R "$ROOT/cmd" "$PACKAGE_DIR/src/cmd"
 cp -R "$ROOT/internal" "$PACKAGE_DIR/src/internal"
 

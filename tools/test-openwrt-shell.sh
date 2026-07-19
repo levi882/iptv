@@ -19,6 +19,7 @@ grep -q -- '--provider-iface "$provider_iface"' "$ROOT/openwrt/files/iptv-refres
 grep -q -- '--log-max-size "$log_max_size"' "$ROOT/openwrt/files/iptv-refresh.init"
 grep -q -- '--ha-webhook-timeout "$ha_webhook_timeout"' "$ROOT/openwrt/files/iptv-refresh.init"
 grep -q -- 'IPTV_REFRESH_HA_WEBHOOK_URL="$ha_webhook_url"' "$ROOT/openwrt/files/iptv-refresh.init"
+grep -Fq -- 'cp "$ROOT/go.mod" "$ROOT/go.sum" "$PACKAGE_DIR/src/"' "$ROOT/tools/build-openwrt-package.sh"
 grep -q -- 'iptv-refresh-nginx-config' "$ROOT/openwrt/files/install-bundle.sh"
 grep -q -- 'iptv-refresh-nginx-config' "$ROOT/tools/build-openwrt-bundle.ps1"
 grep -q -- 'IPKG_INSTROOT="${IPKG_INSTROOT:-}"' "$ROOT/openwrt/files/iptv-refresh-nginx-config"
