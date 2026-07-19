@@ -23,6 +23,7 @@ var ENV_KEYS = [
 	'LOCAL_LOGO_URL_BASE', 'LOCAL_LOGO_TIMEOUT', 'CAPTURE_TIMEOUT', 'REFRESH_TIMEOUT', 'DUMP_PATH',
 	'HB_TOKEN_SERVER', 'HB_PLATFORM_ORIGIN', 'HB_EPG_ENTRY',
 	'HB_EPG_ENTRY_FALLBACKS', 'HB_EASIP', 'HB_NETWORKID', 'HB_CITYCODE',
+	'HB_STB_TYPE', 'HB_PRMID', 'HB_DRM_SUPPLIER',
 	'HB_BIND_INTERFACE', 'HB_BIND_SOURCE_IP', 'HB_USER_AGENT', 'HB_TIMEOUT'
 ];
 
@@ -67,7 +68,11 @@ var DEFAULTS = {
 	HB_EPG_ENTRY: 'auto',
 	HB_EASIP: 'auto',
 	HB_NETWORKID: 'auto',
+	HB_STB_TYPE: 'auto',
+	HB_PRMID: 'auto',
+	HB_DRM_SUPPLIER: 'auto',
 	HB_BIND_INTERFACE: 'auto',
+	HB_USER_AGENT: 'auto',
 	HB_TIMEOUT: '20'
 };
 
@@ -275,9 +280,12 @@ return view.extend({
 		addValue(s, 'provider', 'HB_EASIP', _('EAS IP'), _('Use auto to prefer captured values.'), null, 'auto');
 		addValue(s, 'provider', 'HB_NETWORKID', _('Network ID'), _('Use auto to prefer captured values.'), null, 'auto');
 		addValue(s, 'provider', 'HB_CITYCODE', _('City code'));
+		addValue(s, 'provider', 'HB_STB_TYPE', _('STB type'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
+		addValue(s, 'provider', 'HB_PRMID', _('STB PRMID'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
+		addValue(s, 'provider', 'HB_DRM_SUPPLIER', _('STB DRM supplier'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
 		addValue(s, 'provider', 'HB_BIND_INTERFACE', _('Provider HTTP interface override'), _('Use auto to follow the IPTV interface, none to follow the routing table, or enter a specific device name.'), null, DEFAULTS.HB_BIND_INTERFACE);
 		addValue(s, 'provider', 'HB_BIND_SOURCE_IP', _('Provider source IP'));
-		addValue(s, 'provider', 'HB_USER_AGENT', _('Provider User-Agent'));
+		addValue(s, 'provider', 'HB_USER_AGENT', _('Provider User-Agent'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
 		addValue(s, 'provider', 'HB_TIMEOUT', _('Provider HTTP timeout'), _('Seconds.'), 'uinteger', '20');
 
 		o = s.taboption('raw', form.TextValue, '_raw_preview', _('Current hb.env'), _('Read-only preview. Known settings are edited in the tabs above; unknown variables and comments are preserved when saving.'));

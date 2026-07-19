@@ -120,6 +120,10 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	settings.EASIP = resolveValue(settings.EASIP, creds["HB_EASIP"], "121.60.255.4")
 	settings.NetworkID = resolveValue(settings.NetworkID, creds["HB_NETWORKID"], "1")
 	settings.CityCode = resolveValue(settings.CityCode, creds["HB_CITYCODE"], "")
+	settings.STBType = resolveValue(settings.STBType, creds["HB_STB_TYPE"], "B860AV1.1-T2")
+	settings.PRMID = resolveValue(settings.PRMID, creds["HB_PRMID"], "")
+	settings.DRMSupplier = resolveValue(settings.DRMSupplier, creds["HB_DRM_SUPPLIER"], "")
+	settings.UserAgent = resolveValue(settings.UserAgent, creds["HB_USER_AGENT"], "")
 	if fallback := snapshotEPGHost(settings.SnapshotPath); fallback != "" && fallback != settings.EPGEntry {
 		settings.EPGFallbacks = append(settings.EPGFallbacks, fallback)
 	}
@@ -135,7 +139,8 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	}
 	fetched, err := client.Fetch(ctx, hbiptv.Credentials{
 		UserID: creds["HB_USER_ID"], STBID: creds["HB_STBID"], Authenticator: creds["HB_AUTHENTICATOR"],
-		STBInfo: creds["HB_STBINFO"], UserToken: creds["HB_USER_TOKEN"],
+		STBInfo: creds["HB_STBINFO"], UserToken: creds["HB_USER_TOKEN"], STBType: settings.STBType,
+		PRMID: settings.PRMID, DRMSupplier: settings.DRMSupplier,
 	})
 	if err != nil {
 		return Report{}, err

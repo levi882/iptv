@@ -8,6 +8,20 @@ config_get listen_host main listen_host 127.0.0.1
 config_get listen_port main listen_port 9100
 config_get token_file main token_file /etc/iptv-refresh/token
 config_get iface main iface eth3.3927
+config_get repo_root main repo_root /mnt/sda1/iptv
+
+valid_log_size() {
+	case "$1" in
+		""|*[!0-9]*) return 1 ;;
+	esac
+	[ "${#1}" -le 6 ] || return 1
+	[ "$1" -ge 1 ] || return 1
+	case "$2" in
+		K) [ "$1" -le 102400 ] ;;
+		M) [ "$1" -le 100 ] ;;
+		*) return 1 ;;
+	esac
+}
 
 action="${1:-}"
 case "$action" in
@@ -31,8 +45,35 @@ case "$action" in
 		# rpcd ACL. Do not derive a chmod target from writable UCI data.
 		chmod 0600 /etc/iptv-refresh/hb.env
 		;;
+	clear-log)
+		umask 077
+		log_dir="${repo_root%/}/output/log"
+		log_file="$log_dir/iptv_refresh.log"
+		[ ! -L "$log_file" ] || {
+			echo "ERROR: refusing to clear a symbolic-link log file" >&2
+			exit 1
+		}
+		mkdir -p "$log_dir"
+		: > "$log_file"
+		chmod 0600 "$log_file"
+		;;
+	set-log-max-size)
+		log_size_value="${2:-}"
+		log_size_unit="${3:-}"
+		valid_log_size "$log_size_value" "$log_size_unit" || {
+			echo "ERROR: log size must be between 1 KB and 100 MB" >&2
+			exit 2
+		}
+		log_max_size="${log_size_value}${log_size_unit}"
+		uci set "iptv-refresh.main.log_max_size=$log_max_size"
+		uci commit iptv-refresh
+		if /etc/init.d/iptv-refresh running >/dev/null 2>&1; then
+			/etc/init.d/iptv-refresh restart
+		fi
+		printf '%s\n' "$log_max_size"
+		;;
 	*)
-		echo "Usage: $0 <refresh|capture-refresh|chmod-env>" >&2
+		echo "Usage: $0 <refresh|capture-refresh|chmod-env|clear-log|set-log-max-size NUMBER K|M>" >&2
 		exit 2
 		;;
 esac

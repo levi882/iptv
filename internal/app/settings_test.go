@@ -15,7 +15,7 @@ func TestLoadPackagedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 {
+	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" {
 		t.Fatalf("packaged config mismatch: %#v", settings)
 	}
 }

@@ -90,6 +90,8 @@ assert.strictEqual(app.environmentMap.lastSection.hidetitle, true);
 assert.strictEqual(app.environmentMap.raw.env.HB_BIND_INTERFACE, 'auto');
 assert.strictEqual(app.environmentMap.raw.env.REFRESH_TIMEOUT, '300');
 assert.strictEqual(app.environmentMap.raw.env.DUMP_PATH, '');
+assert.strictEqual(app.environmentMap.raw.env.HB_STB_TYPE, 'auto');
+assert.strictEqual(app.environmentMap.raw.env.HB_USER_AGENT, 'auto');
 assert(!app.environmentMap.raw.env._raw_preview.includes('secret-token'));
 assert(app.environmentMap.raw.env._raw_preview.includes('R2H_TOKEN=********'));
 

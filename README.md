@@ -50,11 +50,15 @@ refresh keeps the previously generated playlist and the last successful
 report.
 
 The capture interface and provider HTTP interface are separate settings. Use
-the raw VLAN or bridge interface that sees STB login traffic for capture, and
-the logical DHCP/PPPoE IPTV interface for provider HTTP. `auto` follows the
-capture interface; `none` follows the normal routing table. A provider HTTP
-interface without an IPv4 address is rejected immediately instead of waiting
-for the network timeout.
+the bridge or logical interface that sees the plain STB login traffic for
+capture; `any` is useful when first identifying the path. Start capture before
+cold-booting the STB so a complete portal login, including the reusable
+UserToken and actual STB parameters, is observed. Use the addressed logical
+DHCP/PPPoE IPTV interface for provider HTTP. `auto` follows the capture
+interface and therefore should not be paired with `any` or an unaddressed raw
+VLAN; `none` follows the normal routing table. A provider HTTP interface
+without an IPv4 address is rejected immediately instead of waiting for the
+network timeout.
 
 On OpenWrt, the package generates an nginx compatibility route for Home
 Assistant. The external `/iptv/refresh` route accepts the existing GET call,
@@ -170,6 +174,13 @@ use typed controls, while comments and unknown `hb.env` variables are preserved.
 The raw preview masks `R2H_TOKEN`.
 The LuCI browser code calls a narrowly permitted local helper; the API token is
 read by the Go process and is never returned to the browser.
+
+The overview log card reads only the application log under
+`REPO_ROOT/output/log/iptv_refresh.log`; it never clears OpenWrt's global
+`logd` buffer. Its UCI-backed size limit accepts a positive number with a KB
+or MB unit (up to 100 MB), while the browser displays the newest 200 lines.
+The clear action is restricted to the IPTV Refresh log beneath the configured
+repository root.
 
 For OpenWrt 25.12.5 `x86_64` artifacts produced by the package workflow, place
 the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded

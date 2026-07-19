@@ -24,13 +24,14 @@ return view.extend({
 		o.default = '1';
 		o.rmempty = false;
 
-		o = s.taboption('general', widgets.DeviceSelect, 'iface', _('IPTV interface'), _('Interface used for STB credential capture. Provider HTTP requests follow this interface unless overridden under Environment.'));
+		o = s.taboption('general', widgets.DeviceSelect, 'iface', _('IPTV interface'), _('Interface used only for STB credential capture. Choose any when the login path is uncertain, and cold-boot the STB after capture starts.'));
+		o.value('any', _('All interfaces'));
 		o.default = 'eth3.3927';
 		o.rmempty = false;
 		o.noaliases = false;
 		o.noinactive = false;
 
-		o = s.taboption('general', widgets.DeviceSelect, 'provider_iface', _('Provider HTTP interface'), _('Interface used for provider authentication and channel downloads. Choose auto to follow the capture interface, or none to follow the routing table. An explicit HB_BIND_INTERFACE value under Environment takes precedence.'));
+		o = s.taboption('general', widgets.DeviceSelect, 'provider_iface', _('Provider HTTP interface'), _('Logical interface used for provider authentication and channel downloads. Raw VLAN and any capture interfaces usually have no IPv4, so select the addressed DHCP/PPPoE IPTV interface explicitly. An explicit HB_BIND_INTERFACE value under Environment takes precedence.'));
 		o.value('auto', _('Follow capture interface'));
 		o.value('none', _('Follow routing table'));
 		o.default = 'auto';

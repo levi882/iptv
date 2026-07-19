@@ -23,7 +23,13 @@ func TestOfflineRefresh(t *testing.T) {
 	}
 	portal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/iptvepg/function/index.jsp", "/iptvepg/function/funcportalauth.jsp":
+		case "/iptvepg/function/index.jsp":
+			fmt.Fprint(w, "ok")
+		case "/iptvepg/function/funcportalauth.jsp":
+			if err := r.ParseForm(); err != nil || r.Form.Get("stbtype") != "Captured-STB" || r.Form.Get("prmid") != "captured-prmid" || r.Form.Get("drmsupplier") != "captured-drm" || r.UserAgent() != "Captured-UA" {
+				http.Error(w, "captured portal parameters were not replayed", http.StatusForbidden)
+				return
+			}
 			fmt.Fprint(w, "ok")
 		case "/iptvepg/function/frameset_builder.jsp":
 			_, _ = w.Write(fixture)
@@ -34,7 +40,7 @@ func TestOfflineRefresh(t *testing.T) {
 	defer portal.Close()
 	root := t.TempDir()
 	creds := filepath.Join(root, "hb.creds.env")
-	if err := os.WriteFile(creds, []byte("HB_USER_ID=u\nHB_STBID=AA\nHB_STBINFO=BB\nHB_USER_TOKEN=token\n"), 0o600); err != nil {
+	if err := os.WriteFile(creds, []byte("HB_USER_ID=u\nHB_STBID=AA\nHB_STBINFO=BB\nHB_USER_TOKEN=token\nHB_STB_TYPE=Captured-STB\nHB_PRMID=captured-prmid\nHB_DRM_SUPPLIER=captured-drm\nHB_USER_AGENT=Captured-UA\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	output := filepath.Join(root, "config", "local", "local_stb.m3u")

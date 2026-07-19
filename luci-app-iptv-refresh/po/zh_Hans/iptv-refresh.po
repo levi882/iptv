@@ -502,5 +502,38 @@ msgstr "自动注入路由器 API 令牌，将旧版 GET 刷新请求转换为 P
 msgid "Home Assistant proxy source addresses"
 msgstr "Home Assistant 代理来源地址"
 
+msgid "Log limit"
+msgstr "日志上限"
+
+msgid "50 lines"
+msgstr "50 行"
+
+msgid "100 lines"
+msgstr "100 行"
+
+msgid "200 lines"
+msgstr "200 行"
+
+msgid "500 lines"
+msgstr "500 行"
+
+msgid "1000 lines"
+msgstr "1000 行"
+
+msgid "Clear log"
+msgstr "清理日志"
+
+msgid "IPTV Refresh log cleared."
+msgstr "IPTV Refresh 日志已清理。"
+
+msgid "Log limit updated to %s lines."
+msgstr "日志上限已更新为 %s 行。"
+
+msgid "Log size limit"
+msgstr "日志大小上限"
+
+msgid "Log size limit updated to %s %s."
+msgstr "日志大小上限已更新为 %s %s。"
+
 msgid "Only these IP addresses or CIDR networks may use the token-injecting nginx refresh route. Prefer the exact Home Assistant IP when it is static."
 msgstr "仅允许这些 IP 地址或 CIDR 网段使用自动注入令牌的 nginx 刷新路由。Home Assistant 使用静态地址时，建议只填写其准确 IP。"

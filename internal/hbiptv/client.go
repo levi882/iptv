@@ -3,6 +3,7 @@ package hbiptv
 import (
 	"context"
 	"fmt"
+	"html"
 	"io"
 	"net/http"
 	"net/http/cookiejar"
@@ -37,6 +38,9 @@ type Credentials struct {
 	Authenticator string
 	STBInfo       string
 	UserToken     string
+	STBType       string
+	PRMID         string
+	DRMSupplier   string
 }
 
 type Result struct {
@@ -50,11 +54,16 @@ type Client struct {
 	http   *http.Client
 }
 
+type portalSession struct {
+	Host    string
+	Referer string
+}
+
 var (
 	userTokenRE   = regexp.MustCompile(`(?i)UserToken=([^\s&<]+)`)
 	configTokenRE = regexp.MustCompile(`CTCSetConfig\('UserToken','([^']+)'\)`)
 	errCodeRE     = regexp.MustCompile(`(?i)errcode\s*=\s*(\d+)`)
-	epgHostRE     = regexp.MustCompile(`(?i)(https?://[a-z0-9.-]+(?::[0-9]+)?)/iptvepg`)
+	epgRedirectRE = regexp.MustCompile(`(?i)(https?://[a-z0-9.-]+(?::[0-9]+)?/iptvepg/function/index\.jsp(?:\?[^"'<>[:space:]]*)?)`)
 )
 
 func New(config Config) (*Client, error) {
@@ -162,10 +171,46 @@ func (c *Client) userToken(ctx context.Context, creds Credentials) (string, erro
 	return "", fmt.Errorf("UserToken not found in provider response")
 }
 
-func (c *Client) initSession(ctx context.Context, entry, token string, creds Credentials) (string, error) {
-	u, err := url.Parse(strings.TrimRight(entry, "/") + "/iptvepg/function/index.jsp")
+func origin(endpoint string) (string, error) {
+	u, err := url.Parse(endpoint)
 	if err != nil {
 		return "", err
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return "", fmt.Errorf("invalid EPG session URL")
+	}
+	return u.Scheme + "://" + u.Host, nil
+}
+
+func pageRedirect(data []byte) string {
+	// Some set-top box pages escape URL slashes for JavaScript and HTML-encode
+	// query separators. Normalize both forms before following the exact URL.
+	normalized := strings.ReplaceAll(string(data), `\/`, "/")
+	match := epgRedirectRE.FindStringSubmatch(normalized)
+	if len(match) < 2 {
+		return ""
+	}
+	return html.UnescapeString(match[1])
+}
+
+func (c *Client) getSessionPage(ctx context.Context, endpoint string) ([]byte, string, error) {
+	req, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, "", err
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, "", err
+	}
+	finalURL := resp.Request.URL.String()
+	data, err := readResponse(resp)
+	return data, finalURL, err
+}
+
+func (c *Client) initSession(ctx context.Context, entry, token string, creds Credentials) (portalSession, error) {
+	u, err := url.Parse(strings.TrimRight(entry, "/") + "/iptvepg/function/index.jsp")
+	if err != nil {
+		return portalSession{}, err
 	}
 	q := u.Query()
 	q.Set("UserToken", token)
@@ -175,44 +220,49 @@ func (c *Client) initSession(ctx context.Context, entry, token string, creds Cre
 	q.Set("easip", c.config.EASIP)
 	q.Set("networkid", c.config.NetworkID)
 	u.RawQuery = q.Encode()
-	req, err := c.newRequest(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return "", err
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return "", err
-	}
-	data, err := readResponse(resp)
-	if err != nil {
-		return "", err
-	}
-	finalURL := resp.Request.URL.String()
-	if before, _, ok := strings.Cut(finalURL, "/iptvepg"); ok {
-		if before != strings.TrimRight(entry, "/") {
-			return before, nil
+	current := u.String()
+	seen := map[string]bool{}
+	for range 4 {
+		if seen[current] {
+			return portalSession{}, fmt.Errorf("EPG session page redirect loop")
 		}
+		seen[current] = true
+		data, finalURL, err := c.getSessionPage(ctx, current)
+		if err != nil {
+			return portalSession{}, err
+		}
+		host, err := origin(finalURL)
+		if err != nil {
+			return portalSession{}, err
+		}
+		next := pageRedirect(data)
+		if next == "" || next == finalURL || seen[next] {
+			return portalSession{Host: host, Referer: finalURL}, nil
+		}
+		// ZTE portals often return a 200 JavaScript page rather than an HTTP
+		// redirect. Follow that exact URL so the load-balanced host can create
+		// its own cookies before funcportalauth.jsp is submitted.
+		current = next
 	}
-	// ZTE portals commonly return a 200 HTML/JavaScript page which points the
-	// STB at a load-balanced EPG host instead of issuing an HTTP redirect.
-	if match := epgHostRE.FindSubmatch(data); match != nil {
-		return strings.TrimRight(string(match[1]), "/"), nil
-	}
-	return strings.TrimRight(entry, "/"), nil
+	return portalSession{}, fmt.Errorf("too many EPG session page redirects")
 }
 
-func (c *Client) portalAuth(ctx context.Context, host, token string, creds Credentials) error {
+func (c *Client) portalAuth(ctx context.Context, session portalSession, token string, creds Credentials) error {
+	stbType := creds.STBType
+	if stbType == "" {
+		stbType = "B860AV1.1-T2"
+	}
 	form := url.Values{
 		"UserToken": {token}, "UserID": {creds.UserID}, "STBID": {creds.STBID},
-		"stbinfo": {creds.STBInfo}, "prmid": {""}, "easip": {c.config.EASIP},
-		"networkid": {c.config.NetworkID}, "stbtype": {"B860AV1.1-T2"}, "drmsupplier": {""},
+		"stbinfo": {creds.STBInfo}, "prmid": {creds.PRMID}, "easip": {c.config.EASIP},
+		"networkid": {c.config.NetworkID}, "stbtype": {stbType}, "drmsupplier": {creds.DRMSupplier},
 	}
-	req, err := c.newRequest(ctx, http.MethodPost, host+"/iptvepg/function/funcportalauth.jsp", form)
+	req, err := c.newRequest(ctx, http.MethodPost, session.Host+"/iptvepg/function/funcportalauth.jsp", form)
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Origin", host)
-	req.Header.Set("Referer", host+"/iptvepg/function/index.jsp?loadbalanced=1&UserIP=&UserID="+url.QueryEscape(creds.UserID)+"&UserToken="+url.QueryEscape(token)+"&STBID="+url.QueryEscape(creds.STBID)+"&LastTermno=&easip="+url.QueryEscape(c.config.EASIP)+"&networkid="+url.QueryEscape(c.config.NetworkID))
+	req.Header.Set("Origin", session.Host)
+	req.Header.Set("Referer", session.Referer)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err
@@ -268,18 +318,18 @@ func (c *Client) Fetch(ctx context.Context, creds Credentials) (Result, error) {
 		if err := c.resetCookies(); err != nil {
 			return Result{}, err
 		}
-		host, err := c.initSession(ctx, entry, token, creds)
+		session, err := c.initSession(ctx, entry, token, creds)
 		stage := "initialize session"
 		if err == nil {
 			stage = "authenticate portal"
-			err = c.portalAuth(ctx, host, token, creds)
+			err = c.portalAuth(ctx, session, token, creds)
 		}
 		if err == nil {
 			stage = "fetch channel list"
 			var frameset string
-			frameset, err = c.frameset(ctx, host)
+			frameset, err = c.frameset(ctx, session.Host)
 			if err == nil {
-				return Result{Frameset: frameset, EPGHost: host, Token: token}, nil
+				return Result{Frameset: frameset, EPGHost: session.Host, Token: token}, nil
 			}
 		}
 		lastErr = fmt.Errorf("EPG entry %s: %s: %s", redact.Sensitive(entry), stage, redact.Sensitive(err.Error()))

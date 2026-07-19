@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=iptv-refresh
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=9
+PKG_RELEASE:=14
 PKG_LICENSE:=Proprietary
 
 PKG_BUILD_DEPENDS:=golang/host
@@ -36,7 +36,7 @@ endef
 
 define Package/iptv-refresh/postinst
 #!/bin/sh
-[ -n "$${IPKG_INSTROOT}" ] && exit 0
+[ -n "$${IPKG_INSTROOT:-}" ] && exit 0
 
 token_file=/etc/iptv-refresh/token
 token="$$(head -n 1 "$${token_file}" 2>/dev/null || true)"
@@ -69,7 +69,7 @@ endef
 
 define Package/iptv-refresh/postrm
 #!/bin/sh
-[ -n "$${IPKG_INSTROOT}" ] && exit 0
+[ -n "$${IPKG_INSTROOT:-}" ] && exit 0
 [ -x /usr/bin/iptv-refresh ] && exit 0
 rm -f /etc/iptv-refresh/nginx.d/auth.conf /etc/nginx/conf.d/iptv-refresh.locations
 rmdir /etc/iptv-refresh/nginx.d 2>/dev/null || true

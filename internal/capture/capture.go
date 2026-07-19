@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -91,11 +92,15 @@ var patterns = map[string]*regexp.Regexp{
 	"HB_STBID":           regexp.MustCompile(`(?i)STBID=([0-9a-f]+)`),
 	"HB_STBINFO":         regexp.MustCompile(`(?i)stbinfo=([0-9a-f]+)`),
 	"HB_USER_TOKEN":      regexp.MustCompile(`UserToken=([_A-Za-z0-9-]+)`),
+	"HB_STB_TYPE":        regexp.MustCompile(`(?i)stbtype=([^&\s]+)`),
+	"HB_PRMID":           regexp.MustCompile(`(?i)prmid=([^&\s]*)`),
+	"HB_DRM_SUPPLIER":    regexp.MustCompile(`(?i)drmsupplier=([^&\s]*)`),
 	"HB_CITYCODE":        regexp.MustCompile(`citycode=([0-9]+)`),
 	"HB_NETWORKID":       regexp.MustCompile(`networkid=([0-9]+)`),
 	"HB_EASIP":           regexp.MustCompile(`easip=([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)`),
 	"HB_PLATFORM_ORIGIN": regexp.MustCompile(`(http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:8080)/iptvepg/platform/index\.jsp`),
 	"HB_EPG_ENTRY":       regexp.MustCompile(`(http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:8080)/iptvepg/function/(?:index|funcportalauth|frameset_builder)\.jsp`),
+	"HB_USER_AGENT":      regexp.MustCompile(`(?im)^User-Agent:[ \t]*([^\r\n]+)`),
 }
 
 var configTokenPattern = regexp.MustCompile(`CTCSetConfig\('UserToken','([_A-Za-z0-9-]+)'`)
@@ -110,10 +115,26 @@ func lastMatch(re *regexp.Regexp, raw []byte) string {
 	return string(matches[len(matches)-1][1])
 }
 
+func decodedFormValue(value string) string {
+	decoded, err := url.QueryUnescape(value)
+	if err != nil {
+		return value
+	}
+	return strings.Map(func(r rune) rune {
+		if r == '\r' || r == '\n' || r == 0 {
+			return -1
+		}
+		return r
+	}, decoded)
+}
+
 func Parse(raw []byte, fallback config.Env, tokenHost string) config.Env {
 	out := config.Env{}
 	for key, re := range patterns {
 		out[key] = lastMatch(re, raw)
+	}
+	for _, key := range []string{"HB_STB_TYPE", "HB_PRMID", "HB_DRM_SUPPLIER"} {
+		out[key] = decodedFormValue(out[key])
 	}
 	if out["HB_USER_TOKEN"] == "" {
 		out["HB_USER_TOKEN"] = lastMatch(configTokenPattern, raw)
@@ -161,15 +182,22 @@ func Complete(env config.Env) bool {
 	return env["HB_USER_ID"] != "" && (env["HB_AUTHENTICATOR"] != "" || env["HB_USER_TOKEN"] != "") && env["HB_STBID"] != "" && env["HB_STBINFO"] != ""
 }
 
-func capturedEnough(raw []byte, fallback config.Env, tokenHost string) bool {
+func capturedEnough(raw []byte, tokenHost string) bool {
 	fresh := Parse(raw, config.Env{}, tokenHost)
-	return fresh["HB_USER_ID"] != "" && (fresh["HB_AUTHENTICATOR"] != "" || fresh["HB_USER_TOKEN"] != "") &&
-		(fresh["HB_STBID"] != "" || fallback["HB_STBID"] != "") &&
-		(fresh["HB_STBINFO"] != "" || fallback["HB_STBINFO"] != "")
+	// Authenticator is commonly single-use and has already been consumed by
+	// the STB before its portal request appears. Wait for the fresh UserToken
+	// and both device fields so one capture cannot mix a new login with cached
+	// credentials from a different session or set-top box.
+	return fresh["HB_USER_ID"] != "" && fresh["HB_USER_TOKEN"] != "" &&
+		fresh["HB_STBID"] != "" && fresh["HB_STBINFO"] != ""
 }
 
 func Save(path string, env config.Env) error {
-	keys := []string{"HB_USER_ID", "HB_STBID", "HB_AUTHENTICATOR", "HB_STBINFO", "HB_USER_TOKEN", "HB_TOKEN_SERVER", "HB_EPG_ENTRY", "HB_EASIP", "HB_NETWORKID", "HB_CITYCODE", "HB_PLATFORM_ORIGIN"}
+	keys := []string{
+		"HB_USER_ID", "HB_STBID", "HB_AUTHENTICATOR", "HB_STBINFO", "HB_USER_TOKEN",
+		"HB_STB_TYPE", "HB_PRMID", "HB_DRM_SUPPLIER", "HB_USER_AGENT",
+		"HB_TOKEN_SERVER", "HB_EPG_ENTRY", "HB_EASIP", "HB_NETWORKID", "HB_CITYCODE", "HB_PLATFORM_ORIGIN",
+	}
 	var b strings.Builder
 	for _, key := range keys {
 		fmt.Fprintf(&b, "%s=%s\n", key, env[key])
@@ -230,7 +258,7 @@ func Run(ctx context.Context, opts Options) (config.Env, error) {
 	for {
 		select {
 		case <-ticker.C:
-			if capturedEnough(output.BytesCopy(), opts.Fallback, opts.TokenHost) {
+			if capturedEnough(output.BytesCopy(), opts.TokenHost) {
 				cancel()
 			}
 		case <-ctx.Done():
@@ -265,13 +293,20 @@ func finish(raw []byte, truncated bool, opts Options) (config.Env, error) {
 			return nil, fmt.Errorf("write capture dump: %w", err)
 		}
 	}
-	env := Parse(raw, opts.Fallback, opts.TokenHost)
-	if env["HB_USER_ID"] == "" || (env["HB_AUTHENTICATOR"] == "" && env["HB_USER_TOKEN"] == "") {
+	fresh := Parse(raw, config.Env{}, opts.TokenHost)
+	if !capturedEnough(raw, opts.TokenHost) {
 		if truncated {
 			return nil, fmt.Errorf("credential capture exceeded the %d MiB safety limit before a complete login was found; reduce unrelated port 8080 traffic and retry", maxCaptureBytes>>20)
 		}
-		return nil, fmt.Errorf("missing UserID and Authenticator/UserToken; ensure the STB logged in during capture")
+		missing := []string{}
+		for _, key := range []string{"HB_USER_ID", "HB_USER_TOKEN", "HB_STBID", "HB_STBINFO"} {
+			if fresh[key] == "" {
+				missing = append(missing, strings.TrimPrefix(key, "HB_"))
+			}
+		}
+		return nil, fmt.Errorf("incomplete STB login capture (missing %s); start capture before cold-booting the STB and wait for portal login to finish", strings.Join(missing, ", "))
 	}
+	env := Parse(raw, opts.Fallback, opts.TokenHost)
 	if opts.OutputPath != "" {
 		if err := Save(opts.OutputPath, env); err != nil {
 			return nil, err

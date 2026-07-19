@@ -20,6 +20,7 @@ import (
 	"iptv/internal/app"
 	"iptv/internal/capture"
 	"iptv/internal/config"
+	"iptv/internal/loglimit"
 	"iptv/internal/server"
 )
 
@@ -153,8 +154,16 @@ func captureCommand(args []string) error {
 	if *dumpPath != "" {
 		settings.CaptureDump = *dumpPath
 	}
-	_, err = capture.Run(context.Background(), capture.Options{Interface: settings.Interface, Timeout: settings.CaptureTimeout, OutputPath: settings.CredsFile, DumpPath: settings.CaptureDump, TokenHost: settings.TokenHost, Fallback: fallback})
-	return err
+	captured, err := capture.Run(context.Background(), capture.Options{Interface: settings.Interface, Timeout: settings.CaptureTimeout, OutputPath: settings.CredsFile, DumpPath: settings.CaptureDump, TokenHost: settings.TokenHost, Fallback: fallback})
+	if err != nil {
+		return err
+	}
+	stbType := captured["HB_STB_TYPE"]
+	if stbType == "" {
+		stbType = "unknown"
+	}
+	fmt.Printf("captured complete STB portal login on %s (UserToken=yes, STBType=%s)\n", settings.Interface, stbType)
+	return nil
 }
 
 type stringList []string
@@ -165,6 +174,7 @@ func (s *stringList) Set(value string) error { *s = append(*s, value); return ni
 func serveCommand(args []string) error {
 	set, repo, envPath, credsPath, iface := commonFlags("serve")
 	providerIface := set.String("provider-iface", "auto", "provider HTTP interface: auto, none, or a device name")
+	logMaxSize := set.String("log-max-size", loglimit.DefaultSize, "maximum LuCI application log size, for example 1M")
 	host := set.String("host", "127.0.0.1", "listen host")
 	port := set.Int("port", defaultServicePort, "listen port")
 	token := set.String("token", "", "required API token")
@@ -189,6 +199,10 @@ func serveCommand(args []string) error {
 		return err
 	}
 	applyProviderInterfaceOverride(&settings, *providerIface)
+	logMaxBytes, err := loglimit.ParseSize(*logMaxSize)
+	if err != nil {
+		return fmt.Errorf("invalid log-max-size %q: %w", *logMaxSize, err)
+	}
 	if len(allowed) == 0 {
 		allowed = []string{"127.0.0.1", "::1"}
 	}
@@ -197,11 +211,11 @@ func serveCommand(args []string) error {
 		allowedMap[value] = true
 	}
 	logger := log.New(os.Stdout, "", log.LstdFlags|log.Lmicroseconds)
-	if logPath := filepath.Join(settings.RepoRoot, "output", "log", "iptv_refresh.log"); os.MkdirAll(filepath.Dir(logPath), 0o755) == nil {
-		if file, err := os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
-			defer file.Close()
-			logger.SetOutput(io.MultiWriter(os.Stdout, file))
-		}
+	logPath := filepath.Join(settings.RepoRoot, "output", "log", "iptv_refresh.log")
+	if fileLog, err := loglimit.New(logPath, logMaxBytes); err != nil {
+		logger.Printf("WARNING: application log unavailable: %v", err)
+	} else {
+		logger.SetOutput(io.MultiWriter(os.Stdout, fileLog))
 	}
 	manager := server.NewManager(app.Runner{Logger: logger}, settings)
 	address := *host + ":" + strconv.Itoa(*port)

@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+# OpenWrt's /lib/functions.sh reads this package-manager variable directly.
+# Runtime service calls do not define it, so initialize it before sourcing the
+# library while nounset mode is active.
+IPKG_INSTROOT="${IPKG_INSTROOT:-}"
+
 AUTH_DIR=/etc/iptv-refresh/nginx.d
 AUTH_FILE=$AUTH_DIR/auth.conf
 AUTH_INCLUDE='/etc/iptv-refresh/nginx.d/*.conf'

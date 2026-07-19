@@ -16,8 +16,8 @@ var callInitAction = rpc.declare({
 	expect: { result: false }
 });
 
-function helper(path, action) {
-	return fs.exec(path, [ action ]).then(function(result) {
+function helper(path, action, args) {
+	return fs.exec(path, [ action ].concat(args || [])).then(function(result) {
 		if (result.code !== 0)
 			throw new Error((result.stderr || result.stdout || _('Command failed')).trim());
 		return result.stdout || '';
@@ -100,12 +100,22 @@ function setRefreshDisabled(disabled) {
 		captureRefresh.disabled = disabled;
 }
 
+function parseLogSize(value) {
+	var match = String(value || '').trim().match(/^([1-9][0-9]*)([KM])B?$/i);
+	return match ? { value: match[1], unit: match[2].toUpperCase() } : { value: '1', unit: 'M' };
+}
+
+function maxLogSizeValue(unit) {
+	return unit === 'M' ? 100 : 102400;
+}
+
 return view.extend({
 	load: function() {
 		return Promise.all([
 			L.resolveDefault(helper(READ_HELPER, 'status'), null),
 			L.resolveDefault(helper(READ_HELPER, 'version'), _('unknown')),
-			L.resolveDefault(helper(READ_HELPER, 'log'), '')
+			L.resolveDefault(helper(READ_HELPER, 'log'), ''),
+			L.resolveDefault(helper(READ_HELPER, 'log-max-size'), '1M')
 		]);
 	},
 
@@ -225,10 +235,51 @@ return view.extend({
 		});
 	},
 
+	handleClearLog: function(event) {
+		var button = event.currentTarget;
+		button.disabled = true;
+		return helper(ACTION_HELPER, 'clear-log').then(function() {
+			setText('iptv-log-output', _('No matching log entries.'));
+			ui.addNotification(null, E('p', {}, _('IPTV Refresh log cleared.')), 'info');
+		}).catch(function(error) {
+			ui.addNotification(null, E('p', {}, error.message), 'error');
+		}).finally(function() {
+			button.disabled = false;
+		});
+	},
+
+	handleLogMaxSize: function() {
+		var input = document.getElementById('iptv-log-size-value');
+		var select = document.getElementById('iptv-log-size-unit');
+		var value = parseInt(input.value, 10);
+		var unit = select.value;
+		var maximum = maxLogSizeValue(unit);
+		if (!isFinite(value) || value < 1)
+			value = 1;
+		if (value > maximum)
+			value = maximum;
+		input.value = String(value);
+		input.max = String(maximum);
+		input.disabled = true;
+		select.disabled = true;
+		return helper(ACTION_HELPER, 'set-log-max-size', [ String(value), unit ]).then(function() {
+			return helper(READ_HELPER, 'log');
+		}).then(function(log) {
+			setText('iptv-log-output', log || _('No matching log entries.'));
+			ui.addNotification(null, E('p', {}, _('Log size limit updated to %s %s.').format(value, unit + 'B')), 'info');
+		}).catch(function(error) {
+			ui.addNotification(null, E('p', {}, error.message), 'error');
+		}).finally(function() {
+			input.disabled = false;
+			select.disabled = false;
+		});
+	},
+
 	render: function(data) {
 		var initialStatus = data[0];
 		var version = String(data[1] || '').trim();
 		var log = data[2] || '';
+		var logSize = parseLogSize(data[3]);
 
 		poll.add(L.bind(this.pollStatus, this), 3);
 
@@ -303,7 +354,10 @@ return view.extend({
 			'.iptv-actions{display:flex;flex-wrap:wrap;gap:.5rem}',
 			'.iptv-action-hint{flex-basis:100%;margin:.25rem 0 0;opacity:.75}',
 			'.iptv-actions [hidden]{display:none}',
-			'.iptv-log-head{display:flex;align-items:center;justify-content:space-between;gap:1rem}',
+			'.iptv-log-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem 1rem}',
+			'.iptv-log-actions,.iptv-log-size{display:flex;align-items:center;gap:.5rem}',
+			'.iptv-log-size span{font-size:.85rem;opacity:.78}',
+			'.iptv-log-size input{width:6.5rem}',
 			'#iptv-log-output{max-height:24em;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin-top:.75rem}',
 			'@media(max-width:800px){.iptv-summary{grid-template-columns:1fr}.iptv-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}',
 			'@media(max-width:520px){.iptv-service-card,.iptv-details{grid-template-columns:1fr}.iptv-service-card .iptv-detail+.iptv-detail{border-left:0;border-top:1px solid rgba(127,127,127,.22)}.iptv-details .iptv-detail:last-child{grid-column:auto}}'
@@ -329,7 +383,22 @@ return view.extend({
 			E('div', { 'class': 'cbi-section' }, [
 				E('div', { 'class': 'iptv-log-head' }, [
 					E('h3', {}, _('Recent log')),
-					E('button', { 'class': 'btn cbi-button', 'click': ui.createHandlerFn(this, 'handleReloadLog') }, _('Reload log'))
+					E('div', { 'class': 'iptv-log-actions' }, [
+						E('label', { 'class': 'iptv-log-size' }, [
+							E('span', {}, _('Log size limit')),
+							E('input', {
+								'id': 'iptv-log-size-value', 'type': 'number', 'min': '1', 'step': '1',
+								'max': String(maxLogSizeValue(logSize.unit)), 'value': logSize.value,
+								'change': ui.createHandlerFn(this, 'handleLogMaxSize')
+							}),
+							E('select', { 'id': 'iptv-log-size-unit', 'change': ui.createHandlerFn(this, 'handleLogMaxSize') }, [
+								E('option', { 'value': 'K', 'selected': logSize.unit === 'K' ? 'selected' : null }, 'KB'),
+								E('option', { 'value': 'M', 'selected': logSize.unit === 'M' ? 'selected' : null }, 'MB')
+							])
+						]),
+						E('button', { 'class': 'btn cbi-button', 'click': ui.createHandlerFn(this, 'handleReloadLog') }, _('Reload log')),
+						E('button', { 'class': 'btn cbi-button cbi-button-negative', 'click': ui.createHandlerFn(this, 'handleClearLog') }, _('Clear log'))
+					])
 				]),
 				E('pre', { 'id': 'iptv-log-output' }, log || _('No matching log entries.'))
 			])

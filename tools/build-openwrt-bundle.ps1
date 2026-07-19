@@ -1,6 +1,6 @@
 param(
     [string]$GoExe = "",
-    [string]$Version = "0.1.0-openwrt25.12.5"
+    [string]$Version = "0.1.0-r14"
 )
 
 $ErrorActionPreference = "Stop"

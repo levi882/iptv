@@ -44,6 +44,9 @@ type Settings struct {
 	EASIP                 string
 	NetworkID             string
 	CityCode              string
+	STBType               string
+	PRMID                 string
+	DRMSupplier           string
 	BindInterface         string
 	BindInterfaceExplicit bool
 	BindSourceIP          string
@@ -128,6 +131,7 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		TokenServer: env.String("HB_TOKEN_SERVER", "http://121.60.255.37:4338"), PlatformOrigin: env.String("HB_PLATFORM_ORIGIN", "http://121.60.255.6:8080"),
 		EPGEntry: env.String("HB_EPG_ENTRY", "http://121.60.255.4:8080"), EPGFallbacks: splitList(env["HB_EPG_ENTRY_FALLBACKS"]),
 		EASIP: env.String("HB_EASIP", "121.60.255.4"), NetworkID: env.String("HB_NETWORKID", "1"), CityCode: env["HB_CITYCODE"],
+		STBType: env["HB_STB_TYPE"], PRMID: env["HB_PRMID"], DRMSupplier: env["HB_DRM_SUPPLIER"],
 		BindInterface: bindInterface, BindInterfaceExplicit: bindInterfaceExplicit, BindSourceIP: env["HB_BIND_SOURCE_IP"],
 		UserAgent: env["HB_USER_AGENT"], HBTimeout: time.Duration(env.Int("HB_TIMEOUT", 20)) * time.Second,
 		IGMPHTTPPrefix: env["IGMP_HTTP_PREFIX"], R2HBaseURL: env["R2H_BASE_URL"], R2HToken: env["R2H_TOKEN"],
