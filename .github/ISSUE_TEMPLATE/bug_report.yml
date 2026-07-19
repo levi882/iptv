@@ -1,0 +1,61 @@
+name: Bug report
+description: Report a reproducible IPTV Refresh defect using redacted data
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never attach IPTV credentials, API tokens, Home Assistant webhook IDs,
+        packet captures, router backups, or raw provider responses.
+
+  - type: input
+    id: version
+    attributes:
+      label: IPTV Refresh version
+      placeholder: 0.1.0-r17
+    validations:
+      required: true
+
+  - type: input
+    id: openwrt
+    attributes:
+      label: OpenWrt release and architecture
+      placeholder: OpenWrt 25.12.5, x86_64
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem description
+      description: Explain what happened and what you expected.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Redacted logs
+      description: Remove subscriber IDs, tokens, webhook URLs, and provider response bodies.
+      render: shell
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy confirmation
+      options:
+        - label: I verified that this report contains no credentials, tokens, webhook IDs, packet captures, or router backups.
+          required: true

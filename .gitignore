@@ -1,10 +1,10 @@
 # Local secrets and machine-specific configuration
-/.env
-/.env.*
-!/.env.example
+.env
+.env.*
+!.env.example
 /config/local/
 /frameset_builder*.jsp
-*.creds.env
+*.creds.env*
 *.pcap
 *.pcapng
 
@@ -13,8 +13,13 @@
 
 # Runtime logs and generated data
 /output/
+/logs_*/
+/action-dist/
 *.log
 *.pid
+*.har
+*.cap
+*.dump
 
 # Downloaded caches and refreshed EPG/logo data
 /cache/
@@ -30,6 +35,12 @@ coverage.html
 *.pprof
 *.exe
 *.test
+*.apk
+*.ipk
+
+# Home Assistant secrets and backups copied for local diagnostics
+secrets.yaml
+*.backup
 
 # Downloaded OpenWrt SDKs
 /openwrt-sdk-*/

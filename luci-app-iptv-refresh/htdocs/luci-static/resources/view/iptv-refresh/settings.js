@@ -79,7 +79,7 @@ return view.extend({
 
 		o = s.taboption('access', form.DynamicList, 'nginx_allow_ip', _('Home Assistant proxy source addresses'), _('Only these IP addresses or CIDR networks may use the token-injecting nginx refresh route. Prefer the exact Home Assistant IP when it is static.'));
 		o.datatype = 'ipaddr';
-		o.value('10.1.1.0/24');
+		o.value('127.0.0.1');
 		o.rmempty = false;
 		o.depends('nginx_proxy', '1');
 
@@ -87,9 +87,9 @@ return view.extend({
 		o.default = '0';
 		o.rmempty = false;
 
-		o = s.taboption('automation', form.Value, 'ha_webhook_url', _('Home Assistant webhook URL'), _('Use a local-only Home Assistant webhook such as http://10.1.1.2:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line.'));
+		o = s.taboption('automation', form.Value, 'ha_webhook_url', _('Home Assistant webhook URL'), _('Use a local-only Home Assistant webhook such as http://192.168.1.2:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line.'));
 		o.password = true;
-		o.placeholder = 'http://10.1.1.2:8123/api/webhook/...';
+		o.placeholder = 'http://192.168.1.2:8123/api/webhook/...';
 		o.rmempty = true;
 		o.depends('stb_power_enabled', '1');
 

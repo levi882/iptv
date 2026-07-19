@@ -1,6 +1,6 @@
 param(
     [string]$GoExe = "",
-    [string]$Version = "0.1.0-r16"
+    [string]$Version = "0.1.0-r17"
 )
 
 $ErrorActionPreference = "Stop"
@@ -55,6 +55,8 @@ Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh.init") -Dest
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh-nginx-config") -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh.uci") -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\hb.env") -Destination $stage
+Copy-Item -LiteralPath (Join-Path $root "LICENSE") -Destination $stage
+Copy-Item -LiteralPath (Join-Path $root "THIRD_PARTY_NOTICES.md") -Destination $stage
 
 $archive = Join-Path $dist "$bundleName.tar.gz"
 if (Test-Path -LiteralPath $archive) {

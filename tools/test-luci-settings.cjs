@@ -45,6 +45,9 @@ if (!source.includes("'nginx_proxy'") || !source.includes("'nginx_allow_ip'")) {
 if (!source.includes("'stb_power_enabled'") || !source.includes("'ha_webhook_url'") || !source.includes("'ha_webhook_timeout'")) {
 	throw new Error('Home Assistant STB power-on settings are missing');
 }
+if (!source.includes("o.value('127.0.0.1')")) {
+	throw new Error('Home Assistant compatibility proxy is not loopback-only by default');
+}
 const loadView = new Function('view', 'form', 'uci', 'widgets', '_', source);
 const app = loadView(view, form, uci, widgets, translate);
 

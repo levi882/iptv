@@ -10,7 +10,7 @@ AUTH_DIR=/etc/iptv-refresh/nginx.d
 AUTH_FILE=$AUTH_DIR/auth.conf
 AUTH_INCLUDE='/etc/iptv-refresh/nginx.d/*.conf'
 LOCATIONS_FILE=/etc/nginx/conf.d/iptv-refresh.locations
-DEFAULT_ALLOW=10.1.1.0/24
+DEFAULT_ALLOW=127.0.0.1
 
 validate_token() {
 	case "$1" in

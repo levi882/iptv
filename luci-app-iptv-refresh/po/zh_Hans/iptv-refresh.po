@@ -547,8 +547,8 @@ msgstr "重新抓取凭据时先启动抓包，再调用配置的 Home Assistant
 msgid "Home Assistant webhook URL"
 msgstr "Home Assistant Webhook 地址"
 
-msgid "Use a local-only Home Assistant webhook such as http://10.1.1.2:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line."
-msgstr "请使用仅限本地访问的 Home Assistant Webhook，例如 http://10.1.1.2:8123/api/webhook/随机ID。该地址按敏感信息处理，不会出现在服务命令行中。"
+msgid "Use a local-only Home Assistant webhook such as http://192.168.1.2:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line."
+msgstr "请使用仅限本地访问的 Home Assistant Webhook，例如 http://192.168.1.2:8123/api/webhook/随机ID。该地址按敏感信息处理，不会出现在服务命令行中。"
 
 msgid "Home Assistant webhook timeout"
 msgstr "Home Assistant Webhook 超时"

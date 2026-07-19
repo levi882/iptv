@@ -2,7 +2,7 @@
 # Prefer one exact Home Assistant address (for example 10.1.1.50/32).
 
 location = /iptv/refresh {
-    allow 10.1.1.0/24;
+    allow 192.168.1.50;
     deny all;
     include /etc/iptv-refresh/nginx.d/*.conf;
     proxy_method POST;
@@ -15,7 +15,7 @@ location = /iptv/refresh {
 }
 
 location = /iptv/healthz {
-    allow 10.1.1.0/24;
+    allow 192.168.1.50;
     deny all;
     proxy_set_header Host $host;
     proxy_set_header Connection "";

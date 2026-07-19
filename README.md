@@ -5,6 +5,19 @@ frontend backed by narrowly scoped rpcd ACLs. It captures STB credentials,
 authenticates with the provider portal, and generates playlist, EPG, logo,
 catch-up, and rtp2httpd-compatible outputs.
 
+## Scope and responsible use
+
+The bundled provider profile targets the Hubei/ZTE-style IPTV portal used by
+the original deployment. Its service addresses are routing metadata, not
+shared credentials. Other regions and providers must supply their own lawful
+configuration and may require parser changes.
+
+Use this software only with an IPTV subscription and network equipment you are
+authorized to access. It is not affiliated with or endorsed by any operator,
+equipment vendor, broadcaster, EPG provider, or logo provider. Do not publish
+subscriber credentials, Home Assistant webhook IDs, packet captures, or
+provider responses when requesting support.
+
 ## Commands
 
 ```text
@@ -80,9 +93,9 @@ Assistant. The external `/iptv/refresh` route accepts the existing GET call,
 injects the router's current token, converts the request to a backend POST,
 and discards all query parameters. The token therefore remains on the router,
 and an old URL such as `?iface=eth3.3927` cannot override the interface selected
-in LuCI. Access is restricted by `nginx_allow_ip`; replace the default
-`10.1.1.0/24` with the exact Home Assistant address (for example
-`10.1.1.50/32`) when it is static.
+in LuCI. The packaged default permits loopback only. Add the exact Home
+Assistant address (for example `10.1.1.50/32`) to `nginx_allow_ip`; avoid
+granting the entire LAN when HA has a static address.
 
 No Home Assistant change is required for an existing configuration like this:
 
@@ -274,3 +287,9 @@ the backend, LuCI app, and Simplified Chinese package, then uploads the APKs and
 If a real `frameset_builder` snapshot or `config/local/*.env` was ever
 committed, adding it to `.gitignore` is not enough: remove it from Git history
 before publishing and rotate the exposed IPTV/API credentials.
+
+## License
+
+Original code and documentation are licensed under the Apache License 2.0.
+See [LICENSE](LICENSE), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and
+[SECURITY.md](SECURITY.md). Contributions are accepted under the same license.
