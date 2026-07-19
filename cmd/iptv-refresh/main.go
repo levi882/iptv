@@ -71,13 +71,13 @@ func defaultRepo() string {
 			return cwd
 		}
 	}
-	return "/mnt/sda1/iptv"
+	return "/mnt/iptv/iptv-refresh"
 }
 
 func commonFlags(name string) (*flag.FlagSet, *string, *string, *string, *string) {
 	set := flag.NewFlagSet(name, flag.ContinueOnError)
 	repo := set.String("repo-root", defaultRepo(), "repository/data root")
-	env := set.String("env-file", "", "fixed hb.env path")
+	env := set.String("env-file", "", "provider environment path")
 	creds := set.String("creds-file", "", "dynamic credentials path")
 	iface := set.String("iface", "", "IPTV capture interface")
 	return set, repo, env, creds, iface
@@ -148,6 +148,7 @@ func captureCommand(args []string) error {
 		return err
 	}
 	fallback, _ := config.Load(settings.CredsFile)
+	fallback = fallback.NormalizeProviderKeys()
 	if *timeout > 0 {
 		settings.CaptureTimeout = time.Duration(*timeout) * time.Second
 	}
@@ -158,7 +159,7 @@ func captureCommand(args []string) error {
 	if err != nil {
 		return err
 	}
-	stbType := captured["HB_STB_TYPE"]
+	stbType := captured["PROVIDER_STB_TYPE"]
 	if stbType == "" {
 		stbType = "unknown"
 	}
@@ -173,7 +174,7 @@ func (s *stringList) Set(value string) error { *s = append(*s, value); return ni
 
 func serveCommand(args []string) error {
 	set, repo, envPath, credsPath, iface := commonFlags("serve")
-	providerIface := set.String("provider-iface", "auto", "provider HTTP interface: auto, none, or a device name")
+	providerIface := set.String("provider-iface", "none", "provider HTTP interface: auto, none, or a device name")
 	logMaxSize := set.String("log-max-size", loglimit.DefaultSize, "maximum LuCI application log size, for example 1M")
 	haWebhookTimeout := set.Int("ha-webhook-timeout", 10, "HA STB power-on webhook timeout in seconds")
 	host := set.String("host", "127.0.0.1", "listen host")

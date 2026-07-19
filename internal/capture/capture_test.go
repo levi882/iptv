@@ -9,9 +9,9 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	raw := []byte("POST /GetUserToken UserID=user1&Authenticator=aabb&citycode=027\nHost: 5.6.7.9:4338\nUser-Agent: Actual-STB/1.0\nPOST http://1.2.3.4:8080/iptvepg/function/funcportalauth.jsp\nSTBID=abcd&stbinfo=eeff&easip=1.2.3.4&networkid=9&stbtype=B860AV2.1%2DT&prmid=vendor%2D1&drmsupplier=drm%2Bvendor&UserToken=token-1")
-	env := Parse(raw, config.Env{}, "5.6.7.8")
-	if !Complete(env) || env["HB_AUTHENTICATOR"] != "AABB" || env["HB_STBID"] != "ABCD" || env["HB_USER_TOKEN"] != "token-1" || env["HB_EPG_ENTRY"] != "http://1.2.3.4:8080" || env["HB_TOKEN_SERVER"] != "http://5.6.7.9:4338" || env["HB_STB_TYPE"] != "B860AV2.1-T" || env["HB_PRMID"] != "vendor-1" || env["HB_DRM_SUPPLIER"] != "drm+vendor" || env["HB_USER_AGENT"] != "Actual-STB/1.0" {
+	raw := []byte("POST /GetUserToken UserID=user1&Authenticator=aabb&citycode=027\nHost: 203.0.113.9:4338\nUser-Agent: Actual-STB/1.0\nGET http://198.51.100.6:8080/iptvepg/platform/index.jsp\nPOST http://198.51.100.4:8080/iptvepg/function/funcportalauth.jsp\nSTBID=abcd&stbinfo=eeff&easip=198.51.100.4&networkid=9&stbtype=B860AV2.1%2DT&prmid=vendor%2D1&drmsupplier=drm%2Bvendor&UserToken=token-1")
+	env := Parse(raw, config.Env{}, "203.0.113.8")
+	if !Complete(env) || env["PROVIDER_AUTHENTICATOR"] != "AABB" || env["PROVIDER_STBID"] != "ABCD" || env["PROVIDER_USER_TOKEN"] != "token-1" || env["PROVIDER_EPG_ENTRY"] != "http://198.51.100.4:8080" || env["PROVIDER_TOKEN_SERVER"] != "http://203.0.113.9:4338" || env["PROVIDER_STB_TYPE"] != "B860AV2.1-T" || env["PROVIDER_PRMID"] != "vendor-1" || env["PROVIDER_DRM_SUPPLIER"] != "drm+vendor" || env["PROVIDER_USER_AGENT"] != "Actual-STB/1.0" {
 		t.Fatalf("unexpected capture: %#v", env)
 	}
 	for key, value := range env {
@@ -22,20 +22,21 @@ func TestParse(t *testing.T) {
 }
 
 func TestParseTokenServerFallback(t *testing.T) {
-	env := Parse(nil, config.Env{}, "5.6.7.8")
-	if env["HB_TOKEN_SERVER"] != "http://5.6.7.8:4338" {
-		t.Fatalf("token server = %q", env["HB_TOKEN_SERVER"])
+	env := Parse(nil, config.Env{}, "203.0.113.8")
+	if env["PROVIDER_TOKEN_SERVER"] != "http://203.0.113.8:4338" {
+		t.Fatalf("token server = %q", env["PROVIDER_TOKEN_SERVER"])
 	}
 }
 
 func TestCapturedEnoughRequiresFreshLogin(t *testing.T) {
-	if capturedEnough(nil, "121.60.255.37") {
+	if capturedEnough(nil, "") {
 		t.Fatal("fallback-only credentials must not stop capture early")
 	}
-	if capturedEnough([]byte("UserID=new&Authenticator=dd&UserToken=new-token"), "121.60.255.37") {
+	if capturedEnough([]byte("UserID=new&Authenticator=dd&UserToken=new-token"), "") {
 		t.Fatal("partial fresh login must not stop capture")
 	}
-	if !capturedEnough([]byte("UserID=new&UserToken=new-token&STBID=BB&stbinfo=CC"), "121.60.255.37") {
+	complete := []byte("Host: 203.0.113.9:4338\nUserID=new&UserToken=new-token&STBID=BB&stbinfo=CC&stbtype=Demo-STB&easip=198.51.100.4&networkid=1\nGET http://198.51.100.6:8080/iptvepg/platform/index.jsp\nGET http://198.51.100.4:8080/iptvepg/function/index.jsp")
+	if !capturedEnough(complete, "") {
 		t.Fatal("complete fresh portal login should stop capture")
 	}
 }
@@ -48,8 +49,8 @@ func TestFinishRejectsFreshLoginMixedWithCachedDeviceFields(t *testing.T) {
 		Options{
 			OutputPath: output,
 			Fallback: config.Env{
-				"HB_STBID":   "OLD-STB",
-				"HB_STBINFO": "OLD-INFO",
+				"PROVIDER_STBID":   "OLD-STB",
+				"PROVIDER_STBINFO": "OLD-INFO",
 			},
 		},
 	)

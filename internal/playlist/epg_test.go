@@ -12,14 +12,14 @@ func TestEPGAndReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	rows := []Row{{Name: "CCTV1", URL: "igmp://1"}, {Name: "湖北卫视", URL: "igmp://2"}}
+	rows := []Row{{Name: "CCTV1", URL: "igmp://1"}, {Name: "示例卫视", URL: "igmp://2"}}
 	mapped, replaced := AttachEPG(rows, names, true)
 	if mapped != 1 || replaced != 1 || rows[0].EPGID != "cctv1" || rows[0].Name != "CCTV-1" {
 		t.Fatalf("unexpected EPG result: %#v mapped=%d replaced=%d", rows, mapped, replaced)
 	}
-	refs := ParseM3UReference("#EXTM3U\n#EXTINF:-1 group-title=\"x\",湖北卫视\n#EXTVLCOPT:foo=bar\nigmp://old\n")
+	refs := ParseM3UReference("#EXTM3U\n#EXTINF:-1 group-title=\"x\",示例卫视\n#EXTVLCOPT:foo=bar\nigmp://old\n")
 	ordered, matched := Reorder(rows, refs, true)
-	if matched != 1 || ordered[0].Name != "湖北卫视" || len(ordered[0].Ref.Options) != 1 {
+	if matched != 1 || ordered[0].Name != "示例卫视" || len(ordered[0].Ref.Options) != 1 {
 		t.Fatalf("unexpected reorder: %#v", ordered)
 	}
 }
@@ -42,7 +42,7 @@ func TestSequenceRatioMatchesDifflibExamples(t *testing.T) {
 	}{
 		{"abcd", "bcde", .75},
 		{"CCTV1", "CCTV一套", 2.0 * 4.0 / 11.0},
-		{"湖北卫视高清", "湖北卫视", .8},
+		{"示例卫视高清", "示例卫视", .8},
 	} {
 		if got := sequenceRatio(test.a, test.b); got != test.want {
 			t.Fatalf("sequenceRatio(%q,%q)=%v want %v", test.a, test.b, got, test.want)

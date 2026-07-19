@@ -53,7 +53,7 @@ type Settings struct {
 	BindInterfaceExplicit bool
 	BindSourceIP          string
 	UserAgent             string
-	HBTimeout             time.Duration
+	ProviderTimeout       time.Duration
 
 	IGMPHTTPPrefix    string
 	R2HBaseURL        string
@@ -94,11 +94,11 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		return Settings{}, nil, err
 	}
 	if envPath == "" {
-		envPath = "/etc/iptv-refresh/hb.env"
+		envPath = "/etc/iptv-refresh/provider.env"
 	}
 	env := config.Env{}
 	if loaded, err := config.Load(envPath); err == nil {
-		env = loaded
+		env = loaded.NormalizeProviderKeys()
 	} else {
 		return Settings{}, nil, fmt.Errorf("load config %s: %w", envPath, err)
 	}
@@ -106,8 +106,8 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 	if keepUnmatched != "append" && keepUnmatched != "drop" {
 		return Settings{}, nil, fmt.Errorf("KEEP_UNMATCHED must be append or drop")
 	}
-	captureInterface := env.String("IFACE", "eth3.3927")
-	bindInterface := strings.TrimSpace(env["HB_BIND_INTERFACE"])
+	captureInterface := env.String("IFACE", "any")
+	bindInterface := strings.TrimSpace(env["PROVIDER_BIND_INTERFACE"])
 	bindInterfaceExplicit := bindInterface != "" && !strings.EqualFold(bindInterface, "auto")
 	switch {
 	case bindInterface == "" || strings.EqualFold(bindInterface, "auto"):
@@ -118,11 +118,11 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 
 	s := Settings{
 		RepoRoot: repoRoot, EnvFile: envPath,
-		CredsFile:      env.String("CREDS_FILE", "/etc/iptv-refresh/hb.creds.env"),
-		Interface:      captureInterface,
-		CaptureTimeout: time.Duration(env.Int("CAPTURE_TIMEOUT", 180)) * time.Second,
-		RefreshTimeout: time.Duration(env.Int("REFRESH_TIMEOUT", 300)) * time.Second,
-		CaptureDump:    env["DUMP_PATH"], TokenHost: "121.60.255.37",
+		CredsFile:          env.String("CREDS_FILE", "/etc/iptv-refresh/provider.creds.env"),
+		Interface:          captureInterface,
+		CaptureTimeout:     time.Duration(env.Int("CAPTURE_TIMEOUT", 180)) * time.Second,
+		RefreshTimeout:     time.Duration(env.Int("REFRESH_TIMEOUT", 300)) * time.Second,
+		CaptureDump:        env["DUMP_PATH"],
 		OutputPath:         env.String("OUTPUT_PATH", filepath.Join(repoRoot, "config", "local", "local_stb.m3u")),
 		SnapshotOutputPath: env["R2H_SNAPSHOT_OUTPUT_PATH"], SnapshotPath: filepath.Join(repoRoot, "frameset_builder_latest.jsp"),
 		OutputFormat: env.String("OUTPUT_FORMAT", "auto"), Mode: env.String("MODE", "auto"),
@@ -130,12 +130,12 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		EPGURL: env["EPG_URL"], EPGFile: env.String("EPG_FILE", filepath.Join(repoRoot, "cache", "e1.xml.gz")),
 		EPGPublicFile: env.String("EPG_PUBLIC_FILE", "/www/iptv_epg/e1.xml.gz"), EPGCompareSource: env["EPG_COMPARE_SOURCE"],
 		EPGReplaceName: env.Bool("EPG_REPLACE_NAME", false), XTvgURL: env["X_TVG_URL"],
-		TokenServer: env.String("HB_TOKEN_SERVER", "http://121.60.255.37:4338"), PlatformOrigin: env.String("HB_PLATFORM_ORIGIN", "http://121.60.255.6:8080"),
-		EPGEntry: env.String("HB_EPG_ENTRY", "http://121.60.255.4:8080"), EPGFallbacks: splitList(env["HB_EPG_ENTRY_FALLBACKS"]),
-		EASIP: env.String("HB_EASIP", "121.60.255.4"), NetworkID: env.String("HB_NETWORKID", "1"), CityCode: env["HB_CITYCODE"],
-		STBType: env["HB_STB_TYPE"], PRMID: env["HB_PRMID"], DRMSupplier: env["HB_DRM_SUPPLIER"],
-		BindInterface: bindInterface, BindInterfaceExplicit: bindInterfaceExplicit, BindSourceIP: env["HB_BIND_SOURCE_IP"],
-		UserAgent: env["HB_USER_AGENT"], HBTimeout: time.Duration(env.Int("HB_TIMEOUT", 20)) * time.Second,
+		TokenServer: env.String("PROVIDER_TOKEN_SERVER", "auto"), PlatformOrigin: env.String("PROVIDER_PLATFORM_ORIGIN", "auto"),
+		EPGEntry: env.String("PROVIDER_EPG_ENTRY", "auto"), EPGFallbacks: splitList(env["PROVIDER_EPG_ENTRY_FALLBACKS"]),
+		EASIP: env.String("PROVIDER_EASIP", "auto"), NetworkID: env.String("PROVIDER_NETWORKID", "auto"), CityCode: env["PROVIDER_CITYCODE"],
+		STBType: env["PROVIDER_STB_TYPE"], PRMID: env["PROVIDER_PRMID"], DRMSupplier: env["PROVIDER_DRM_SUPPLIER"],
+		BindInterface: bindInterface, BindInterfaceExplicit: bindInterfaceExplicit, BindSourceIP: env["PROVIDER_BIND_SOURCE_IP"],
+		UserAgent: env["PROVIDER_USER_AGENT"], ProviderTimeout: time.Duration(env.Int("PROVIDER_TIMEOUT", 20)) * time.Second,
 		IGMPHTTPPrefix: env["IGMP_HTTP_PREFIX"], R2HBaseURL: env["R2H_BASE_URL"], R2HToken: env["R2H_TOKEN"],
 		R2HIGMPPath: env.String("R2H_IGMP_PATH", "udp"), R2HAddFCC: env.Bool("R2H_ADD_FCC", false), R2HFCCTYPE: env.String("R2H_FCC_TYPE", "telecom"),
 		R2HProxyRTSP: env.Bool("R2H_PROXY_RTSP", false), R2HCatchupHost: env["R2H_CATCHUP_HOST"], CatchupType: env.String("CATCHUP_TYPE", "shift"),
@@ -164,8 +164,8 @@ func (s Settings) Validate() error {
 	if s.RefreshTimeout <= 0 {
 		return fmt.Errorf("REFRESH_TIMEOUT must be greater than zero")
 	}
-	if s.HBTimeout <= 0 {
-		return fmt.Errorf("HB_TIMEOUT must be greater than zero")
+	if s.ProviderTimeout <= 0 {
+		return fmt.Errorf("PROVIDER_TIMEOUT must be greater than zero")
 	}
 	if s.Mode != "auto" && s.Mode != "rtsp" && s.Mode != "igmp" {
 		return fmt.Errorf("MODE must be auto, rtsp, or igmp")

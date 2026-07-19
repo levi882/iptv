@@ -34,12 +34,12 @@ func TestParseSanitizedSnapshot(t *testing.T) {
 }
 
 func TestSelectURL(t *testing.T) {
-	p := URLSelectParams{Mode: "auto", R2HBaseURL: "http://10.1.1.1:7088", R2HIGMPPath: "udp", R2HToken: "x", R2HAddFCC: true, R2HFCCTYPE: "telecom"}
-	got := SelectURL("", "rtsp://10.0.0.1/live?x=1", "igmp://239.1.1.1:1234|rtsp://10.0.0.2/live", "10.0.0.3", "123", p)
-	if got != "http://10.1.1.1:7088/udp/239.1.1.1:1234?r2h-token=x&fcc=10.0.0.3%3A123&fcc-type=telecom" {
+	p := URLSelectParams{Mode: "auto", R2HBaseURL: "http://192.0.2.1:7088", R2HIGMPPath: "udp", R2HToken: "x", R2HAddFCC: true, R2HFCCTYPE: "telecom"}
+	got := SelectURL("", "rtsp://192.0.2.1/live?x=1", "igmp://239.1.1.1:1234|rtsp://192.0.2.2/live", "192.0.2.3", "123", p)
+	if got != "http://192.0.2.1:7088/udp/239.1.1.1:1234?r2h-token=x&fcc=192.0.2.3%3A123&fcc-type=telecom" {
 		t.Fatalf("unexpected URL: %s", got)
 	}
-	if got := SnapshotURL("http://10.1.1.1:7088/udp/239.1.1.1:1234$高清", p.R2HBaseURL); got != "http://10.1.1.1:7088/udp/239.1.1.1:1234?snapshot=1$高清" {
+	if got := SnapshotURL("http://192.0.2.1:7088/udp/239.1.1.1:1234$高清", p.R2HBaseURL); got != "http://192.0.2.1:7088/udp/239.1.1.1:1234?snapshot=1$高清" {
 		t.Fatalf("unexpected snapshot URL: %s", got)
 	}
 }
@@ -80,21 +80,21 @@ func TestR2HPlaylistGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	params := URLSelectParams{
-		Mode: "auto", R2HBaseURL: "http://10.1.1.1:7088", R2HIGMPPath: "udp",
+		Mode: "auto", R2HBaseURL: "http://192.0.2.1:7088", R2HIGMPPath: "udp",
 		R2HAddFCC: true, R2HFCCTYPE: "telecom", R2HProxyRTSP: true,
 	}
 	channels := ParseChannels(string(raw), params, "hd_sd", "UHD", "HD", "SD")
 	_, catchup, lengths := ChannelsToRows(channels)
 	SortChannels(channels, "user_channel_id")
 	rows, _, _ := ChannelsToRows(channels)
-	catchup = ConvertCatchup(catchup, "10.1.1.1:7088", "{(b)YmdHMS}-{(e)YmdHMS}", "-900")
+	catchup = ConvertCatchup(catchup, "192.0.2.1:7088", "{(b)YmdHMS}-{(e)YmdHMS}", "-900")
 	output := RenderM3U(rows, RenderOptions{
-		XTvgURL: "http://10.1.1.1/iptv_epg/e1.xml.gz", Catchup: catchup,
+		XTvgURL: "http://192.0.2.1/iptv_epg/e1.xml.gz", Catchup: catchup,
 		TimeShiftLength: lengths, CatchupType: "shift",
 	})
 	sum := sha256.Sum256([]byte(output))
 	got := hex.EncodeToString(sum[:])
-	const want = "25c12291de82b4fd833e9ce1929b8a9d3da5810c12a65b1241db1b4b37741d3e"
+	const want = "5502c69b713303c6874088ff03757fd47f788e1ca0d4c18cee4cfc15641fb22f"
 	if got != want {
 		t.Fatalf("R2H playlist golden hash = %s, want %s (bytes=%d)", got, want, len(output))
 	}

@@ -4,7 +4,7 @@
 'require uci';
 'require tools.widgets as widgets';
 
-var ENV_FILE = '/etc/iptv-refresh/hb.env';
+var ENV_FILE = '/etc/iptv-refresh/provider.env';
 
 return view.extend({
 	load: function() {
@@ -25,17 +25,17 @@ return view.extend({
 		o.default = '1';
 		o.rmempty = false;
 
-		o = s.taboption('general', widgets.DeviceSelect, 'iface', _('IPTV interface'), _('Interface used only for STB credential capture. Choose any when the login path is uncertain, and cold-boot the STB after capture starts.'));
+		o = s.taboption('general', widgets.DeviceSelect, 'iface', _('Credential capture interface'), _('Interface used only for STB credential capture. Choose any when the login path is uncertain, and cold-boot the STB after capture starts.'));
 		o.value('any', _('All interfaces'));
-		o.default = 'eth3.3927';
+		o.default = 'any';
 		o.rmempty = false;
 		o.noaliases = false;
 		o.noinactive = false;
 
-		o = s.taboption('general', widgets.DeviceSelect, 'provider_iface', _('Provider HTTP interface'), _('Logical interface used for provider authentication and channel downloads. Raw VLAN and any capture interfaces usually have no IPv4, so select the addressed DHCP/PPPoE IPTV interface explicitly. An explicit HB_BIND_INTERFACE value under Environment takes precedence.'));
+		o = s.taboption('general', widgets.DeviceSelect, 'provider_iface', _('Provider HTTP interface'), _('Logical interface used for provider authentication and channel downloads. Raw VLAN and any capture interfaces usually have no IPv4, so select the addressed DHCP/PPPoE IPTV interface explicitly. An explicit provider interface override under Environment takes precedence.'));
 		o.value('auto', _('Follow capture interface'));
 		o.value('none', _('Follow routing table'));
-		o.default = 'auto';
+		o.default = 'none';
 		o.rmempty = false;
 		o.noaliases = false;
 		o.noinactive = false;
@@ -51,7 +51,7 @@ return view.extend({
 		o.rmempty = false;
 
 		o = s.taboption('paths', form.Value, 'repo_root', _('Data root'));
-		o.default = '/mnt/sda1/iptv';
+		o.default = '/mnt/iptv/iptv-refresh';
 		o.rmempty = false;
 
 		o = s.taboption('paths', form.Value, 'env_file', _('Environment file'));
@@ -59,7 +59,7 @@ return view.extend({
 		o.rmempty = false;
 
 		o = s.taboption('paths', form.Value, 'creds_file', _('Captured credentials file'));
-		o.default = '/etc/iptv-refresh/hb.creds.env';
+		o.default = '/etc/iptv-refresh/provider.creds.env';
 		o.rmempty = false;
 
 		o = s.taboption('paths', form.Value, 'token_file', _('API token file'));
@@ -87,9 +87,9 @@ return view.extend({
 		o.default = '0';
 		o.rmempty = false;
 
-		o = s.taboption('automation', form.Value, 'ha_webhook_url', _('Home Assistant webhook URL'), _('Use a local-only Home Assistant webhook such as http://192.168.1.2:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line.'));
+		o = s.taboption('automation', form.Value, 'ha_webhook_url', _('Home Assistant webhook URL'), _('Use a local-only Home Assistant webhook such as http://homeassistant.lan:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line.'));
 		o.password = true;
-		o.placeholder = 'http://192.168.1.2:8123/api/webhook/...';
+		o.placeholder = 'http://homeassistant.lan:8123/api/webhook/...';
 		o.rmempty = true;
 		o.depends('stb_power_enabled', '1');
 

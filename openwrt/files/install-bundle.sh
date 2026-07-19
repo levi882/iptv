@@ -41,9 +41,34 @@ if [ ! -e /etc/config/iptv-refresh ]; then
 	chmod 0600 /etc/config/iptv-refresh
 fi
 
-if [ ! -e /etc/iptv-refresh/hb.env ]; then
-	cp "$SELF_DIR/hb.env" /etc/iptv-refresh/hb.env
-	chmod 0600 /etc/iptv-refresh/hb.env
+env_file="$(uci -q get iptv-refresh.main.env_file 2>/dev/null || true)"
+if [ "$env_file" = /etc/iptv-refresh/hb.env ]; then
+	if [ -r "$env_file" ]; then
+		cp -p "$env_file" /etc/iptv-refresh/provider.env
+	else
+		cp "$SELF_DIR/provider.env" /etc/iptv-refresh/provider.env
+	fi
+	sed -i \
+		-e 's/^HB_/PROVIDER_/' \
+		-e 's#^CREDS_FILE=/etc/iptv-refresh/hb\.creds\.env$#CREDS_FILE=/etc/iptv-refresh/provider.creds.env#' \
+		/etc/iptv-refresh/provider.env
+	chmod 0600 /etc/iptv-refresh/provider.env
+	uci set iptv-refresh.main.env_file='/etc/iptv-refresh/provider.env'
+	uci commit iptv-refresh
+elif [ ! -e /etc/iptv-refresh/provider.env ]; then
+	cp "$SELF_DIR/provider.env" /etc/iptv-refresh/provider.env
+	chmod 0600 /etc/iptv-refresh/provider.env
+fi
+
+creds_file="$(uci -q get iptv-refresh.main.creds_file 2>/dev/null || true)"
+if [ "$creds_file" = /etc/iptv-refresh/hb.creds.env ]; then
+	if [ -r "$creds_file" ]; then
+		cp -p "$creds_file" /etc/iptv-refresh/provider.creds.env
+		sed -i 's/^HB_/PROVIDER_/' /etc/iptv-refresh/provider.creds.env
+		chmod 0600 /etc/iptv-refresh/provider.creds.env
+	fi
+	uci set iptv-refresh.main.creds_file='/etc/iptv-refresh/provider.creds.env'
+	uci commit iptv-refresh
 fi
 
 token=""
@@ -75,7 +100,9 @@ fi
 
 echo "Installed $(/usr/bin/iptv-refresh version)"
 echo "Configuration: /etc/config/iptv-refresh"
-echo "Environment:   /etc/iptv-refresh/hb.env"
+env_file="$(uci -q get iptv-refresh.main.env_file 2>/dev/null || true)"
+[ -n "$env_file" ] || env_file=/etc/iptv-refresh/provider.env
+echo "Environment:   $env_file"
 if [ "$was_running" -eq 0 ]; then
 	echo "After checking the configuration, run:"
 	echo "  /etc/init.d/iptv-refresh enable"

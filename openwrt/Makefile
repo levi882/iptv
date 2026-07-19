@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=iptv-refresh
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=17
+PKG_RELEASE:=18
 PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE
 
@@ -20,18 +20,18 @@ include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 define Package/iptv-refresh
   SECTION:=net
   CATEGORY:=Network
-  TITLE:=HBIPTV playlist refresh service
+  TITLE:=IPTV provider playlist refresh service
   DEPENDS:=$(GO_ARCH_DEPENDS) +tcpdump +ca-bundle
 endef
 
 define Package/iptv-refresh/description
-  Captures HBIPTV STB credentials, authenticates with the provider portal,
+  Captures STB credentials, authenticates with the provider portal,
   generates M3U/EPG/logo outputs, and exposes a local refresh HTTP API.
 endef
 
 define Package/iptv-refresh/conffiles
 /etc/config/iptv-refresh
-/etc/iptv-refresh/hb.env
+/etc/iptv-refresh/provider.env
 /etc/iptv-refresh/token
 endef
 
@@ -62,9 +62,28 @@ fi
 listen_port="$$(uci -q get iptv-refresh.main.listen_port 2>/dev/null || true)"
 if [ "$${listen_port}" = "9099" ]; then
 	uci set iptv-refresh.main.listen_port='9100'
-	uci commit iptv-refresh
 fi
-unset token random_file listen_port
+env_file="$$(uci -q get iptv-refresh.main.env_file 2>/dev/null || true)"
+if [ "$${env_file}" = "/etc/iptv-refresh/hb.env" ]; then
+	[ ! -r "$${env_file}" ] || cp -p "$${env_file}" /etc/iptv-refresh/provider.env
+	sed -i \
+		-e 's/^HB_/PROVIDER_/' \
+		-e 's#^CREDS_FILE=/etc/iptv-refresh/hb\.creds\.env$$#CREDS_FILE=/etc/iptv-refresh/provider.creds.env#' \
+		/etc/iptv-refresh/provider.env
+	chmod 600 /etc/iptv-refresh/provider.env
+	uci set iptv-refresh.main.env_file='/etc/iptv-refresh/provider.env'
+fi
+creds_file="$$(uci -q get iptv-refresh.main.creds_file 2>/dev/null || true)"
+if [ "$${creds_file}" = "/etc/iptv-refresh/hb.creds.env" ]; then
+	if [ -r "$${creds_file}" ]; then
+		cp -p "$${creds_file}" /etc/iptv-refresh/provider.creds.env
+		sed -i 's/^HB_/PROVIDER_/' /etc/iptv-refresh/provider.creds.env
+		chmod 600 /etc/iptv-refresh/provider.creds.env
+	fi
+	uci set iptv-refresh.main.creds_file='/etc/iptv-refresh/provider.creds.env'
+fi
+uci commit iptv-refresh
+unset token random_file listen_port env_file creds_file
 exit 0
 endef
 
@@ -101,7 +120,7 @@ define Package/iptv-refresh/install
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/iptv-refresh.uci $(1)/etc/config/iptv-refresh
 	$(INSTALL_DIR) $(1)/etc/iptv-refresh
-	$(INSTALL_CONF) ./files/hb.env $(1)/etc/iptv-refresh/hb.env
+	$(INSTALL_CONF) ./files/provider.env $(1)/etc/iptv-refresh/provider.env
 	$(INSTALL_CONF) ./files/token $(1)/etc/iptv-refresh/token
 endef
 

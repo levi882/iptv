@@ -9,9 +9,31 @@ import (
 	"strings"
 )
 
-// Env is the deliberately small KEY=VALUE format used by the existing hb.env.
+// Env is the deliberately small KEY=VALUE format used by provider.env.
 // It supports blank lines, comments, export prefixes, and single/double quoted values.
 type Env map[string]string
+
+var legacyProviderKeys = map[string]string{
+	"HB_USER_ID":             "PROVIDER_USER_ID",
+	"HB_AUTHENTICATOR":       "PROVIDER_AUTHENTICATOR",
+	"HB_STBID":               "PROVIDER_STBID",
+	"HB_STBINFO":             "PROVIDER_STBINFO",
+	"HB_USER_TOKEN":          "PROVIDER_USER_TOKEN",
+	"HB_STB_TYPE":            "PROVIDER_STB_TYPE",
+	"HB_PRMID":               "PROVIDER_PRMID",
+	"HB_DRM_SUPPLIER":        "PROVIDER_DRM_SUPPLIER",
+	"HB_CITYCODE":            "PROVIDER_CITYCODE",
+	"HB_NETWORKID":           "PROVIDER_NETWORKID",
+	"HB_EASIP":               "PROVIDER_EASIP",
+	"HB_PLATFORM_ORIGIN":     "PROVIDER_PLATFORM_ORIGIN",
+	"HB_EPG_ENTRY":           "PROVIDER_EPG_ENTRY",
+	"HB_EPG_ENTRY_FALLBACKS": "PROVIDER_EPG_ENTRY_FALLBACKS",
+	"HB_TOKEN_SERVER":        "PROVIDER_TOKEN_SERVER",
+	"HB_BIND_INTERFACE":      "PROVIDER_BIND_INTERFACE",
+	"HB_BIND_SOURCE_IP":      "PROVIDER_BIND_SOURCE_IP",
+	"HB_USER_AGENT":          "PROVIDER_USER_AGENT",
+	"HB_TIMEOUT":             "PROVIDER_TIMEOUT",
+}
 
 func Load(path string) (Env, error) {
 	f, err := os.Open(path)
@@ -57,6 +79,23 @@ func (e Env) Overlay(other Env) Env {
 	out := make(Env, len(e)+len(other))
 	maps.Copy(out, e)
 	maps.Copy(out, other)
+	return out
+}
+
+// NormalizeProviderKeys returns a copy using the provider-neutral key names.
+// Legacy HB_* values remain accepted so existing installations can upgrade
+// without rewriting their environment or captured-credential files first.
+func (e Env) NormalizeProviderKeys() Env {
+	out := make(Env, len(e)+len(legacyProviderKeys))
+	maps.Copy(out, e)
+	for legacy, canonical := range legacyProviderKeys {
+		if _, exists := out[canonical]; exists {
+			continue
+		}
+		if value, exists := out[legacy]; exists {
+			out[canonical] = value
+		}
+	}
 	return out
 }
 

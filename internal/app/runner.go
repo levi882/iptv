@@ -10,14 +10,15 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
 	"iptv/internal/capture"
 	"iptv/internal/config"
-	"iptv/internal/hbiptv"
 	"iptv/internal/logocache"
 	"iptv/internal/playlist"
+	"iptv/internal/portal"
 	"iptv/internal/runlock"
 	"iptv/internal/source"
 	"iptv/internal/stbpower"
@@ -74,6 +75,7 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	if creds == nil {
 		creds = config.Env{}
 	}
+	creds = creds.NormalizeProviderKeys()
 	if !settings.SkipCapture {
 		logger.Printf("[1/3] capturing STB credentials on %s", settings.Interface)
 		var onCaptureReady func(context.Context) error
@@ -100,7 +102,7 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 			creds = captured
 		}
 	}
-	if creds["HB_USER_ID"] == "" || creds["HB_STBID"] == "" || creds["HB_STBINFO"] == "" {
+	if creds["PROVIDER_USER_ID"] == "" || creds["PROVIDER_STBID"] == "" || creds["PROVIDER_STBINFO"] == "" {
 		return Report{}, fmt.Errorf("required credentials missing in %s", settings.CredsFile)
 	}
 
@@ -126,32 +128,49 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 		}
 	}
 
-	settings.TokenServer = resolveTokenServer(settings.TokenServer, creds["HB_TOKEN_SERVER"])
-	settings.PlatformOrigin = resolveValue(settings.PlatformOrigin, creds["HB_PLATFORM_ORIGIN"], "http://121.60.255.6:8080")
-	settings.EPGEntry = resolveValue(settings.EPGEntry, creds["HB_EPG_ENTRY"], "http://121.60.255.4:8080")
-	settings.EASIP = resolveValue(settings.EASIP, creds["HB_EASIP"], "121.60.255.4")
-	settings.NetworkID = resolveValue(settings.NetworkID, creds["HB_NETWORKID"], "1")
-	settings.CityCode = resolveValue(settings.CityCode, creds["HB_CITYCODE"], "")
-	settings.STBType = resolveValue(settings.STBType, creds["HB_STB_TYPE"], "B860AV1.1-T2")
-	settings.PRMID = resolveValue(settings.PRMID, creds["HB_PRMID"], "")
-	settings.DRMSupplier = resolveValue(settings.DRMSupplier, creds["HB_DRM_SUPPLIER"], "")
-	settings.UserAgent = resolveValue(settings.UserAgent, creds["HB_USER_AGENT"], "")
+	settings.TokenServer = resolveValue(settings.TokenServer, creds["PROVIDER_TOKEN_SERVER"], "")
+	settings.PlatformOrigin = resolveValue(settings.PlatformOrigin, creds["PROVIDER_PLATFORM_ORIGIN"], "")
+	settings.EPGEntry = resolveValue(settings.EPGEntry, creds["PROVIDER_EPG_ENTRY"], "")
+	settings.EASIP = resolveValue(settings.EASIP, creds["PROVIDER_EASIP"], "")
+	settings.NetworkID = resolveValue(settings.NetworkID, creds["PROVIDER_NETWORKID"], "")
+	settings.CityCode = resolveValue(settings.CityCode, creds["PROVIDER_CITYCODE"], "")
+	settings.STBType = resolveValue(settings.STBType, creds["PROVIDER_STB_TYPE"], "")
+	settings.PRMID = resolveValue(settings.PRMID, creds["PROVIDER_PRMID"], "")
+	settings.DRMSupplier = resolveValue(settings.DRMSupplier, creds["PROVIDER_DRM_SUPPLIER"], "")
+	settings.UserAgent = resolveValue(settings.UserAgent, creds["PROVIDER_USER_AGENT"], "")
+	missingProviderValues := []string{}
+	for key, value := range map[string]string{
+		"TOKEN_SERVER":    settings.TokenServer,
+		"PLATFORM_ORIGIN": settings.PlatformOrigin,
+		"EPG_ENTRY":       settings.EPGEntry,
+		"EASIP":           settings.EASIP,
+		"NETWORKID":       settings.NetworkID,
+		"STB_TYPE":        settings.STBType,
+	} {
+		if value == "" || strings.EqualFold(value, "auto") {
+			missingProviderValues = append(missingProviderValues, key)
+		}
+	}
+	if len(missingProviderValues) > 0 {
+		slices.Sort(missingProviderValues)
+		return Report{}, fmt.Errorf("provider metadata missing (%s); recapture credentials or configure the provider environment", strings.Join(missingProviderValues, ", "))
+	}
 	if fallback := snapshotEPGHost(settings.SnapshotPath); fallback != "" && fallback != settings.EPGEntry {
 		settings.EPGFallbacks = append(settings.EPGFallbacks, fallback)
 	}
 
 	logger.Printf("[2/3] authenticating and fetching channels from %s", settings.EPGEntry)
-	client, err := hbiptv.New(hbiptv.Config{
+	client, err := portal.New(portal.Config{
 		TokenServer: settings.TokenServer, PlatformOrigin: settings.PlatformOrigin, EPGEntry: settings.EPGEntry,
 		EPGFallbacks: settings.EPGFallbacks, EASIP: settings.EASIP, NetworkID: settings.NetworkID, CityCode: settings.CityCode,
-		UserAgent: settings.UserAgent, BindInterface: settings.BindInterface, BindSourceIP: settings.BindSourceIP, Timeout: settings.HBTimeout,
+		UserAgent: settings.UserAgent, BindInterface: settings.BindInterface, BindSourceIP: settings.BindSourceIP, Timeout: settings.ProviderTimeout,
 	})
 	if err != nil {
 		return Report{}, err
 	}
-	fetched, err := client.Fetch(ctx, hbiptv.Credentials{
-		UserID: creds["HB_USER_ID"], STBID: creds["HB_STBID"], Authenticator: creds["HB_AUTHENTICATOR"],
-		STBInfo: creds["HB_STBINFO"], UserToken: creds["HB_USER_TOKEN"], STBType: settings.STBType,
+	fetched, err := client.Fetch(ctx, portal.Credentials{
+		UserID: creds["PROVIDER_USER_ID"], STBID: creds["PROVIDER_STBID"], Authenticator: creds["PROVIDER_AUTHENTICATOR"],
+		STBInfo: creds["PROVIDER_STBINFO"], UserToken: creds["PROVIDER_USER_TOKEN"], STBType: settings.STBType,
 		PRMID: settings.PRMID, DRMSupplier: settings.DRMSupplier,
 	})
 	if err != nil {
@@ -324,10 +343,10 @@ func interfaceIPv4(name string) (string, error) {
 			return ip.String(), nil
 		}
 	}
-	return "", fmt.Errorf("provider HTTP interface %q has no IPv4 address; select the logical IPTV interface or set HB_BIND_INTERFACE=none", name)
+	return "", fmt.Errorf("provider HTTP interface %q has no IPv4 address; select the logical IPTV interface or set PROVIDER_BIND_INTERFACE=none", name)
 }
 
-var snapshotHostRE = regexp.MustCompile(`(http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:8080)/iptvepg`)
+var snapshotHostRE = regexp.MustCompile(`(https?://[A-Za-z0-9.-]+(?::[0-9]+)?)/iptvepg`)
 
 func snapshotEPGHost(path string) string {
 	raw, err := os.ReadFile(path)
@@ -341,21 +360,13 @@ func snapshotEPGHost(path string) string {
 	return string(match[1])
 }
 
-func resolveTokenServer(configured, captured string) string {
-	const legacyDefault = "http://121.60.255.37:4338"
-	// The legacy packaged value was a concrete host even though the provider
-	// load-balances this endpoint. Prefer a freshly captured endpoint over that
-	// old default, while preserving any genuinely custom configured server.
-	if captured != "" && (configured == "" || configured == "auto" || configured == legacyDefault) {
-		return captured
-	}
-	return resolveValue(configured, captured, legacyDefault)
-}
-
 func tokenHost(endpoint string) string {
+	if endpoint == "" || strings.EqualFold(endpoint, "auto") {
+		return ""
+	}
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return "121.60.255.37"
+		return ""
 	}
 	host, _, err := net.SplitHostPort(u.Host)
 	if err == nil {

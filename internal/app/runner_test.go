@@ -39,15 +39,15 @@ func TestOfflineRefresh(t *testing.T) {
 	}))
 	defer portal.Close()
 	root := t.TempDir()
-	creds := filepath.Join(root, "hb.creds.env")
-	if err := os.WriteFile(creds, []byte("HB_USER_ID=u\nHB_STBID=AA\nHB_STBINFO=BB\nHB_USER_TOKEN=token\nHB_STB_TYPE=Captured-STB\nHB_PRMID=captured-prmid\nHB_DRM_SUPPLIER=captured-drm\nHB_USER_AGENT=Captured-UA\n"), 0o600); err != nil {
+	creds := filepath.Join(root, "provider.creds.env")
+	if err := os.WriteFile(creds, []byte("PROVIDER_USER_ID=u\nPROVIDER_STBID=AA\nPROVIDER_STBINFO=BB\nPROVIDER_USER_TOKEN=token\nPROVIDER_STB_TYPE=Captured-STB\nPROVIDER_PRMID=captured-prmid\nPROVIDER_DRM_SUPPLIER=captured-drm\nPROVIDER_USER_AGENT=Captured-UA\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	output := filepath.Join(root, "config", "local", "local_stb.m3u")
 	settings := Settings{
 		RepoRoot: root, CredsFile: creds, SkipCapture: true, OutputPath: output,
 		SnapshotPath: filepath.Join(root, "frameset_builder_latest.jsp"), OutputFormat: "m3u", Mode: "auto", SortBy: "user_channel_id",
-		TokenServer: portal.URL, PlatformOrigin: portal.URL, EPGEntry: portal.URL, EASIP: "127.0.0.1", NetworkID: "1", HBTimeout: 3 * time.Second,
+		TokenServer: portal.URL, PlatformOrigin: portal.URL, EPGEntry: portal.URL, EASIP: "127.0.0.1", NetworkID: "1", ProviderTimeout: 3 * time.Second,
 		R2HIGMPPath: "udp", R2HFCCTYPE: "telecom", LineTagRule: "none", DisplayNameMode: "name", CatchupType: "shift",
 		CatchupPlayseek: "{(b)YmdHMS}-{(e)YmdHMS}", LogoMatchThreshold: .65,
 	}
@@ -69,8 +69,8 @@ func TestOfflineRefresh(t *testing.T) {
 
 func TestRefreshRejectsUnavailableProviderInterface(t *testing.T) {
 	root := t.TempDir()
-	creds := filepath.Join(root, "hb.creds.env")
-	if err := os.WriteFile(creds, []byte("HB_USER_ID=u\nHB_STBID=AA\nHB_STBINFO=BB\nHB_USER_TOKEN=token\n"), 0o600); err != nil {
+	creds := filepath.Join(root, "provider.creds.env")
+	if err := os.WriteFile(creds, []byte("PROVIDER_USER_ID=u\nPROVIDER_STBID=AA\nPROVIDER_STBINFO=BB\nPROVIDER_USER_TOKEN=token\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	settings := Settings{
@@ -90,14 +90,14 @@ func TestRefreshHonorsOverallTimeout(t *testing.T) {
 	defer portal.Close()
 
 	root := t.TempDir()
-	creds := filepath.Join(root, "hb.creds.env")
-	if err := os.WriteFile(creds, []byte("HB_USER_ID=u\nHB_STBID=AA\nHB_STBINFO=BB\nHB_USER_TOKEN=token\n"), 0o600); err != nil {
+	creds := filepath.Join(root, "provider.creds.env")
+	if err := os.WriteFile(creds, []byte("PROVIDER_USER_ID=u\nPROVIDER_STBID=AA\nPROVIDER_STBINFO=BB\nPROVIDER_USER_TOKEN=token\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	settings := Settings{
 		RepoRoot: root, CredsFile: creds, SkipCapture: true,
-		EPGEntry: portal.URL, EASIP: "127.0.0.1", NetworkID: "1",
-		HBTimeout: 3 * time.Second, RefreshTimeout: 50 * time.Millisecond,
+		TokenServer: portal.URL, PlatformOrigin: portal.URL, EPGEntry: portal.URL, EASIP: "127.0.0.1", NetworkID: "1", STBType: "Demo-STB",
+		ProviderTimeout: 3 * time.Second, RefreshTimeout: 50 * time.Millisecond,
 	}
 	started := time.Now()
 	_, err := (Runner{}).Run(context.Background(), settings)
@@ -114,7 +114,7 @@ func TestCurrentGeneratedArtifactsParityWhenPresent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	settings, _, err := LoadSettings(repo, filepath.Join(repo, "scripts", "hb.env"))
+	settings, _, err := LoadSettings(repo, filepath.Join(repo, "scripts", "provider.env"))
 	if err != nil {
 		t.Skipf("local runtime config unavailable: %v", err)
 	}
@@ -214,20 +214,18 @@ func groupsFromM3U(text string) map[string]string {
 }
 
 func localArtifactPath(repo, path string) string {
-	const openWrtRoot = "/mnt/sda1/iptv/"
+	const openWrtRoot = "/mnt/iptv/iptv-refresh/"
 	if after, ok := strings.CutPrefix(filepath.ToSlash(path), openWrtRoot); ok {
 		return filepath.Join(repo, filepath.FromSlash(after))
 	}
 	return path
 }
 
-func TestResolveTokenServerPrefersCapturedOverLegacyDefault(t *testing.T) {
-	const captured = "http://121.60.255.38:4338"
-	if got := resolveTokenServer("http://121.60.255.37:4338", captured); got != captured {
-		t.Fatalf("legacy default resolved to %q", got)
+func TestTokenHostSupportsAutomaticDiscovery(t *testing.T) {
+	if got := tokenHost("auto"); got != "" {
+		t.Fatalf("automatic token host = %q", got)
 	}
-	const custom = "http://10.0.0.1:4338"
-	if got := resolveTokenServer(custom, captured); got != custom {
-		t.Fatalf("custom server resolved to %q", got)
+	if got := tokenHost("http://203.0.113.10:4338"); got != "203.0.113.10" {
+		t.Fatalf("explicit token host = %q", got)
 	}
 }

@@ -9,6 +9,7 @@
 			},
 			"uci": [ "iptv-refresh" ],
 			"file": {
+				"/etc/iptv-refresh/provider.env": [ "read" ],
 				"/etc/iptv-refresh/hb.env": [ "read" ],
 				"/usr/libexec/iptv-refresh-luci": [ "exec" ]
 			}
@@ -21,6 +22,7 @@
 			},
 			"uci": [ "iptv-refresh" ],
 			"file": {
+				"/etc/iptv-refresh/provider.env": [ "write" ],
 				"/etc/iptv-refresh/hb.env": [ "write" ],
 				"/usr/libexec/iptv-refresh-luci-action": [ "exec" ]
 			}

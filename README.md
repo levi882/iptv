@@ -7,10 +7,10 @@ catch-up, and rtp2httpd-compatible outputs.
 
 ## Scope and responsible use
 
-The bundled provider profile targets the Hubei/ZTE-style IPTV portal used by
-the original deployment. Its service addresses are routing metadata, not
-shared credentials. Other regions and providers must supply their own lawful
-configuration and may require parser changes.
+The bundled portal client targets a ZTE-style IPTV login flow. Provider
+service addresses are discovered during credential capture instead of being
+embedded in the public defaults. Other portal implementations may require
+their own lawful configuration or parser changes.
 
 Use this software only with an IPTV subscription and network equipment you are
 authorized to access. It is not affiliated with or endorsed by any operator,
@@ -28,16 +28,16 @@ iptv-refresh control ACTION     Call the local service without exposing its toke
 iptv-refresh version            Print the build version
 ```
 
-Existing `hb.env` keys and output locations remain supported. A refresh can be
-tested without waiting for a new STB login when a valid credentials file
-already exists:
+A refresh can be tested without waiting for a new STB login when a valid
+credentials file already exists. Replace `ethX.Y` and the data mount with the
+values used by the router:
 
 ```sh
 /usr/bin/iptv-refresh refresh \
-  --repo-root /mnt/sda1/iptv \
-  --env-file /etc/iptv-refresh/hb.env \
-  --creds-file /etc/iptv-refresh/hb.creds.env \
-  --iface eth3.3927 \
+  --repo-root /mnt/iptv/iptv-refresh \
+  --env-file /etc/iptv-refresh/provider.env \
+  --creds-file /etc/iptv-refresh/provider.creds.env \
+  --iface ethX.Y \
   --skip-capture
 ```
 
@@ -48,8 +48,8 @@ The OpenWrt service listens on `127.0.0.1:9100` by default:
 ```text
 GET  /healthz
 GET  /status
-POST /refresh?iface=eth3.3927
-POST /refresh?iface=eth3.3927&capture=1
+POST /refresh?iface=ethX.Y
+POST /refresh?iface=ethX.Y&capture=1
 GET  /playlist
 ```
 
@@ -71,7 +71,9 @@ DHCP/PPPoE IPTV interface for provider HTTP. `auto` follows the capture
 interface and therefore should not be paired with `any` or an unaddressed raw
 VLAN; `none` follows the normal routing table. A provider HTTP interface
 without an IPv4 address is rejected immediately instead of waiting for the
-network timeout.
+network timeout. Fresh installations therefore default to `any` for capture
+and `none` for provider HTTP; select the addressed IPTV interface in LuCI when
+the provider is not reachable through the normal routing table.
 
 Credential recapture can optionally power on the STB through a Home Assistant
 webhook. Under LuCI **Settings > STB automation**, enable the integration and
@@ -92,10 +94,10 @@ On OpenWrt, the package generates an nginx compatibility route for Home
 Assistant. The external `/iptv/refresh` route accepts the existing GET call,
 injects the router's current token, converts the request to a backend POST,
 and discards all query parameters. The token therefore remains on the router,
-and an old URL such as `?iface=eth3.3927` cannot override the interface selected
-in LuCI. The packaged default permits loopback only. Add the exact Home
-Assistant address (for example `10.1.1.50/32`) to `nginx_allow_ip`; avoid
-granting the entire LAN when HA has a static address.
+and a legacy URL containing `?iface=ethX.Y` cannot override the interface
+selected in LuCI. The packaged default permits loopback only. Add the exact
+Home Assistant host address to `nginx_allow_ip`; avoid granting the entire LAN
+when HA has a static address.
 
 No Home Assistant change is required for an existing configuration like this:
 
@@ -107,7 +109,7 @@ rest_command:
     timeout: 20
 
 # secrets.yaml
-iptv_refresh_url: "http://10.1.1.1/iptv/refresh?iface=eth3.3927"
+iptv_refresh_url: "http://router.lan/iptv/refresh"
 ```
 
 The generated compatibility proxy can be disabled under **Services -> IPTV
@@ -179,11 +181,11 @@ cd iptv-refresh-*-x86_64
 sh install.sh
 ```
 
-The bundle installer preserves existing UCI and `hb.env` files and generates a
-local API token when one has not been configured. Go is not installed on the
-router. Unlike the SDK-built `.apk`, the bundle does not resolve runtime
-dependencies, so install `tcpdump` and `ca-bundle` with `apk` if they are
-missing.
+The bundle installer preserves existing UCI and provider environment files and
+generates a local API token when one has not been configured. Go is not
+installed on the router. Unlike the SDK-built `.apk`, the bundle does not
+resolve runtime dependencies, so install `tcpdump` and `ca-bundle` with `apk`
+if they are missing.
 
 Install the resulting package with the package manager used by the router:
 
@@ -198,7 +200,8 @@ provides status polling, service controls, manual refresh,
 playlist download, recent logs, UCI settings, and a structured Environment page.
 The Environment page follows the tabbed configuration style used by
 `luci-app-rtp2httpd`: output, rtp2httpd, EPG/logo, and provider/capture fields
-use typed controls, while comments and unknown `hb.env` variables are preserved.
+use typed controls, while comments and unknown provider environment variables
+are preserved.
 The raw preview masks `R2H_TOKEN`.
 The LuCI browser code calls a narrowly permitted local helper; the API token is
 read by the Go process and is never returned to the browser.
@@ -215,19 +218,22 @@ the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded
 installers to the router:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r9.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r10.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r10.apk `
+scp .\dist\iptv-refresh-0.1.0-r18.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r18.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r18.apk `
   .\dist\SHA256SUMS `
   .\tools\install-openwrt-apk.sh `
-  .\tools\install-openwrt-luci-apk.sh root@10.1.1.1:/tmp/
-ssh root@10.1.1.1 "sh /tmp/install-openwrt-apk.sh"
-ssh root@10.1.1.1 "sh /tmp/install-openwrt-luci-apk.sh"
+  .\tools\install-openwrt-luci-apk.sh root@router.lan:/tmp/
+ssh root@router.lan "sh /tmp/install-openwrt-apk.sh"
+ssh root@router.lan "sh /tmp/install-openwrt-luci-apk.sh"
 ```
 
 The installer verifies the release, architecture, and SHA-256 before changing
 the router. APK conffile handling preserves the installed configuration on
 upgrades. It then enables the service and checks `/healthz`.
+Release r18 copies legacy regional environment and credential files to the
+provider-neutral paths and updates UCI automatically; the original files stay
+in place as recovery copies.
 When upgrading from the previous default, an unchanged listen port of `9099`
 is migrated to `9100`; any other custom port is preserved.
 After the LuCI packages are installed, Simplified Chinese is registered as
@@ -238,13 +244,13 @@ visible, then open **Services -> IPTV Refresh**.
 Before starting the service, open **Services -> IPTV Refresh -> Environment**
 and check the output paths, rtp2httpd address/token, EPG, logo, and provider
 settings. The same values can be edited directly in
-`/etc/iptv-refresh/hb.env`. Check `/etc/config/iptv-refresh`, then enable and
+`/etc/iptv-refresh/provider.env`. Check `/etc/config/iptv-refresh`, then enable and
 start the service:
 
 ```sh
-chmod 600 /etc/iptv-refresh/hb.env /etc/iptv-refresh/token
-[ ! -f /etc/iptv-refresh/hb.creds.env ] || \
-  chmod 600 /etc/iptv-refresh/hb.creds.env
+chmod 600 /etc/iptv-refresh/provider.env /etc/iptv-refresh/token
+[ ! -f /etc/iptv-refresh/provider.creds.env ] || \
+  chmod 600 /etc/iptv-refresh/provider.creds.env
 /etc/init.d/iptv-refresh enable
 /etc/init.d/iptv-refresh start
 curl http://127.0.0.1:9100/healthz

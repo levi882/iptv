@@ -25,12 +25,18 @@ grep -Fq -- 'cp "$ROOT/LICENSE" "$PACKAGE_DIR/src/LICENSE"' "$ROOT/tools/build-o
 grep -Fq -- 'cp "$ROOT/LICENSE" "$LUCI_PACKAGE_DIR/LICENSE"' "$ROOT/tools/build-openwrt-package.sh"
 grep -q -- 'iptv-refresh-nginx-config' "$ROOT/openwrt/files/install-bundle.sh"
 grep -q -- 'iptv-refresh-nginx-config' "$ROOT/tools/build-openwrt-bundle.ps1"
+grep -q -- 'openwrt\\files\\provider.env' "$ROOT/tools/build-openwrt-bundle.ps1"
+grep -q -- "option env_file '/etc/iptv-refresh/provider.env'" "$ROOT/openwrt/files/iptv-refresh.uci"
+grep -q -- "option iface 'any'" "$ROOT/openwrt/files/iptv-refresh.uci"
+grep -q -- "option provider_iface 'none'" "$ROOT/openwrt/files/iptv-refresh.uci"
+grep -q -- '^PROVIDER_TOKEN_SERVER=auto$' "$ROOT/openwrt/files/provider.env"
 grep -q -- 'IPKG_INSTROOT="${IPKG_INSTROOT:-}"' "$ROOT/openwrt/files/iptv-refresh-nginx-config"
 grep -q -- '^DEFAULT_ALLOW=127\.0\.0\.1$' "$ROOT/openwrt/files/iptv-refresh-nginx-config"
 grep -q -- 'clear-log)' "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
 grep -q -- 'set-log-max-size)' "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
 grep -q -- 'set-log-max-size NUMBER K|M>' "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
 grep -q -- 'between 1 KB and 100 MB' "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
+grep -q -- '/etc/iptv-refresh/provider.env' "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
 grep -q -- 'tail -n 200 "$log_file"' "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci"
 
 nginx_helper="$ROOT/openwrt/files/iptv-refresh-nginx-config"
@@ -45,8 +51,8 @@ if sh "$nginx_helper" render-auth 'bad"token' >/dev/null 2>&1; then
 fi
 
 locations="$TEST_DIR/iptv-refresh.locations"
-sh "$nginx_helper" render-locations 127.0.0.1 9100 10.1.1.50 2001:db8::/64 > "$locations"
-[ "$(grep -Fc 'allow 10.1.1.50;' "$locations")" -eq 2 ]
+sh "$nginx_helper" render-locations 127.0.0.1 9100 192.0.2.50 2001:db8::/64 > "$locations"
+[ "$(grep -Fc 'allow 192.0.2.50;' "$locations")" -eq 2 ]
 [ "$(grep -Fc 'allow 2001:db8::/64;' "$locations")" -eq 2 ]
 grep -Fq 'include /etc/iptv-refresh/nginx.d/*.conf;' "$locations"
 grep -Fq 'proxy_method POST;' "$locations"
@@ -60,7 +66,7 @@ if sh "$nginx_helper" render-locations '127.0.0.1;return' 9100 >/dev/null 2>&1; 
 	echo "Unsafe nginx upstream address was accepted" >&2
 	exit 1
 fi
-if sh "$nginx_helper" render-locations 127.0.0.1 9100 '10.1.1.0/24;' >/dev/null 2>&1; then
+if sh "$nginx_helper" render-locations 127.0.0.1 9100 '192.0.2.0/24;' >/dev/null 2>&1; then
 	echo "Unsafe nginx allow address was accepted" >&2
 	exit 1
 fi

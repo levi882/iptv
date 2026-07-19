@@ -20,7 +20,7 @@ func TestControlRequest(t *testing.T) {
 			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(`{"ok":true}`))
 		case "/refresh":
-			if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer secret" || r.URL.Query().Get("iface") != "eth3.3927" {
+			if r.Method != http.MethodPost || r.Header.Get("Authorization") != "Bearer secret" || r.URL.Query().Get("iface") != "ethX.Y" {
 				t.Errorf("unexpected refresh request: method=%s authorization=%q query=%q", r.Method, r.Header.Get("Authorization"), r.URL.RawQuery)
 			}
 			refreshQueries <- r.URL.RawQuery
@@ -36,14 +36,14 @@ func TestControlRequest(t *testing.T) {
 	if err != nil || string(body) != `{"ok":true}` {
 		t.Fatalf("status response = %q, %v", body, err)
 	}
-	body, err = controlRequest(server.Client(), server.URL, "refresh", "secret", "eth3.3927", false)
+	body, err = controlRequest(server.Client(), server.URL, "refresh", "secret", "ethX.Y", false)
 	if err != nil || !strings.Contains(string(body), `"started"`) {
 		t.Fatalf("refresh response = %q, %v", body, err)
 	}
 	if query := <-refreshQueries; strings.Contains(query, "capture=") {
 		t.Fatalf("normal refresh unexpectedly captured credentials: %q", query)
 	}
-	body, err = controlRequest(server.Client(), server.URL, "refresh", "secret", "eth3.3927", true)
+	body, err = controlRequest(server.Client(), server.URL, "refresh", "secret", "ethX.Y", true)
 	if err != nil || !strings.Contains(string(body), `"started"`) {
 		t.Fatalf("capture refresh response = %q, %v", body, err)
 	}

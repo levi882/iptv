@@ -1,8 +1,8 @@
 # Reference output. The OpenWrt package generates this location automatically.
-# Prefer one exact Home Assistant address (for example 10.1.1.50/32).
+# Prefer one exact Home Assistant address (192.0.2.50 is a documentation example).
 
 location = /iptv/refresh {
-    allow 192.168.1.50;
+    allow 192.0.2.50;
     deny all;
     include /etc/iptv-refresh/nginx.d/*.conf;
     proxy_method POST;
@@ -15,7 +15,7 @@ location = /iptv/refresh {
 }
 
 location = /iptv/healthz {
-    allow 192.168.1.50;
+    allow 192.0.2.50;
     deny all;
     proxy_set_header Host $host;
     proxy_set_header Connection "";

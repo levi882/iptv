@@ -4,8 +4,9 @@
 'require fs';
 'require rpc';
 'require ui';
+'require uci';
 
-var ENV_FILE = '/etc/iptv-refresh/hb.env';
+var DEFAULT_ENV_FILE = '/etc/iptv-refresh/provider.env';
 var ACTION_HELPER = '/usr/libexec/iptv-refresh-luci-action';
 var SERVICE = 'iptv-refresh';
 
@@ -21,17 +22,34 @@ var ENV_KEYS = [
 	'LOGO_MATCH_SOURCE', 'LOGO_URL_BASE', 'LOGO_OVERRIDES_FILE',
 	'LOGO_MATCH_THRESHOLD', 'LOCAL_LOGO_CACHE', 'LOCAL_LOGO_DIR',
 	'LOCAL_LOGO_URL_BASE', 'LOCAL_LOGO_TIMEOUT', 'CAPTURE_TIMEOUT', 'REFRESH_TIMEOUT', 'DUMP_PATH',
-	'HB_TOKEN_SERVER', 'HB_PLATFORM_ORIGIN', 'HB_EPG_ENTRY',
-	'HB_EPG_ENTRY_FALLBACKS', 'HB_EASIP', 'HB_NETWORKID', 'HB_CITYCODE',
-	'HB_STB_TYPE', 'HB_PRMID', 'HB_DRM_SUPPLIER',
-	'HB_BIND_INTERFACE', 'HB_BIND_SOURCE_IP', 'HB_USER_AGENT', 'HB_TIMEOUT'
+	'PROVIDER_TOKEN_SERVER', 'PROVIDER_PLATFORM_ORIGIN', 'PROVIDER_EPG_ENTRY',
+	'PROVIDER_EPG_ENTRY_FALLBACKS', 'PROVIDER_EASIP', 'PROVIDER_NETWORKID', 'PROVIDER_CITYCODE',
+	'PROVIDER_STB_TYPE', 'PROVIDER_PRMID', 'PROVIDER_DRM_SUPPLIER',
+	'PROVIDER_BIND_INTERFACE', 'PROVIDER_BIND_SOURCE_IP', 'PROVIDER_USER_AGENT', 'PROVIDER_TIMEOUT'
 ];
+
+var LEGACY_ENV_KEYS = {
+	HB_TOKEN_SERVER: 'PROVIDER_TOKEN_SERVER',
+	HB_PLATFORM_ORIGIN: 'PROVIDER_PLATFORM_ORIGIN',
+	HB_EPG_ENTRY: 'PROVIDER_EPG_ENTRY',
+	HB_EPG_ENTRY_FALLBACKS: 'PROVIDER_EPG_ENTRY_FALLBACKS',
+	HB_EASIP: 'PROVIDER_EASIP',
+	HB_NETWORKID: 'PROVIDER_NETWORKID',
+	HB_CITYCODE: 'PROVIDER_CITYCODE',
+	HB_STB_TYPE: 'PROVIDER_STB_TYPE',
+	HB_PRMID: 'PROVIDER_PRMID',
+	HB_DRM_SUPPLIER: 'PROVIDER_DRM_SUPPLIER',
+	HB_BIND_INTERFACE: 'PROVIDER_BIND_INTERFACE',
+	HB_BIND_SOURCE_IP: 'PROVIDER_BIND_SOURCE_IP',
+	HB_USER_AGENT: 'PROVIDER_USER_AGENT',
+	HB_TIMEOUT: 'PROVIDER_TIMEOUT'
+};
 
 var DEFAULTS = {
 	MODE: 'auto',
 	OUTPUT_FORMAT: 'm3u',
-	OUTPUT_PATH: '/mnt/sda1/iptv/config/local/local_stb.m3u',
-	R2H_SNAPSHOT_OUTPUT_PATH: '/mnt/sda1/iptv/config/local/local_stb.snapshot.m3u',
+	OUTPUT_PATH: '/mnt/iptv/iptv-refresh/config/local/local_stb.m3u',
+	R2H_SNAPSHOT_OUTPUT_PATH: '/mnt/iptv/iptv-refresh/config/local/local_stb.snapshot.m3u',
 	SORT_BY: 'user_channel_id',
 	KEEP_UNMATCHED: 'append',
 	USE_CACHE: '1',
@@ -41,39 +59,39 @@ var DEFAULTS = {
 	LINE_TAG_UHD: '超高清',
 	LINE_TAG_HD: '高清',
 	LINE_TAG_SD: '标清',
-	R2H_BASE_URL: 'http://10.1.1.1:7088',
+	R2H_BASE_URL: '',
 	R2H_IGMP_PATH: 'udp',
 	R2H_ADD_FCC: '1',
 	R2H_FCC_TYPE: 'telecom',
 	R2H_PROXY_RTSP: '1',
-	R2H_CATCHUP_HOST: '10.1.1.1:7088',
+	R2H_CATCHUP_HOST: '',
 	CATCHUP_TYPE: 'shift',
 	CATCHUP_PLAYSEEK_TEMPLATE: '{(b)YmdHMS}-{(e)YmdHMS}',
 	CATCHUP_SEEK_OFFSET: '-900',
 	EPG_URL: 'http://epg.51zmt.top:8000/e1.xml.gz',
-	EPG_FILE: '/mnt/sda1/iptv/cache/e1.xml.gz',
+	EPG_FILE: '/mnt/iptv/iptv-refresh/cache/e1.xml.gz',
 	EPG_PUBLIC_FILE: '/www/iptv_epg/e1.xml.gz',
-	X_TVG_URL: 'http://10.1.1.1/iptv_epg/e1.xml.gz',
+	X_TVG_URL: '',
 	LOGO_MATCH_SOURCE: 'https://live.fanmingming.com/tv/m3u/index.m3u',
 	LOGO_MATCH_THRESHOLD: '0.65',
 	LOCAL_LOGO_CACHE: '1',
 	LOCAL_LOGO_DIR: '/www/iptv_logo',
-	LOCAL_LOGO_URL_BASE: 'http://10.1.1.1/iptv_logo',
+	LOCAL_LOGO_URL_BASE: '',
 	LOCAL_LOGO_TIMEOUT: '20',
 	CAPTURE_TIMEOUT: '180',
 	REFRESH_TIMEOUT: '300',
 	DUMP_PATH: '',
-	HB_TOKEN_SERVER: 'http://121.60.255.37:4338',
-	HB_PLATFORM_ORIGIN: 'auto',
-	HB_EPG_ENTRY: 'auto',
-	HB_EASIP: 'auto',
-	HB_NETWORKID: 'auto',
-	HB_STB_TYPE: 'auto',
-	HB_PRMID: 'auto',
-	HB_DRM_SUPPLIER: 'auto',
-	HB_BIND_INTERFACE: 'auto',
-	HB_USER_AGENT: 'auto',
-	HB_TIMEOUT: '20'
+	PROVIDER_TOKEN_SERVER: 'auto',
+	PROVIDER_PLATFORM_ORIGIN: 'auto',
+	PROVIDER_EPG_ENTRY: 'auto',
+	PROVIDER_EASIP: 'auto',
+	PROVIDER_NETWORKID: 'auto',
+	PROVIDER_STB_TYPE: 'auto',
+	PROVIDER_PRMID: 'auto',
+	PROVIDER_DRM_SUPPLIER: 'auto',
+	PROVIDER_BIND_INTERFACE: 'auto',
+	PROVIDER_USER_AGENT: 'auto',
+	PROVIDER_TIMEOUT: '20'
 };
 
 var callInitAction = rpc.declare({
@@ -104,6 +122,11 @@ function parseEnvironment(text) {
 		if (match)
 			values[match[1]] = decodeEnvValue(match[2]);
 	});
+	Object.keys(LEGACY_ENV_KEYS).forEach(function(legacy) {
+		var current = LEGACY_ENV_KEYS[legacy];
+		if (!Object.prototype.hasOwnProperty.call(values, current) && Object.prototype.hasOwnProperty.call(values, legacy))
+			values[current] = values[legacy];
+	});
 	return values;
 }
 
@@ -123,13 +146,17 @@ function updateEnvironment(text, values) {
 	var known = {};
 	var found = {};
 	ENV_KEYS.forEach(function(key) { known[key] = true; });
+	Object.keys(LEGACY_ENV_KEYS).forEach(function(key) { known[key] = true; });
 
 	var lines = String(text || '').replace(/\r\n?/g, '\n').split('\n').map(function(line) {
 		var match = line.match(/^(\s*(?:export\s+)?)([A-Za-z_][A-Za-z0-9_]*)\s*=.*$/);
 		if (!match || !known[match[2]])
 			return line;
-		found[match[2]] = true;
-		return match[1] + match[2] + '=' + encodeEnvValue(values[match[2]]);
+		var key = LEGACY_ENV_KEYS[match[2]] || match[2];
+		if (found[key])
+			return '';
+		found[key] = true;
+		return match[1] + key + '=' + encodeEnvValue(values[key]);
 	});
 
 	while (lines.length && lines[lines.length - 1] === '')
@@ -162,7 +189,11 @@ function addFlag(section, tab, key, title, description, defaultValue) {
 
 return view.extend({
 	load: function() {
-		return L.resolveDefault(fs.read_direct(ENV_FILE), '');
+		var self = this;
+		return uci.load('iptv-refresh').then(function() {
+			self.envFile = uci.get('iptv-refresh', 'main', 'env_file') || DEFAULT_ENV_FILE;
+			return L.resolveDefault(fs.read_direct(self.envFile), '');
+		});
 	},
 
 	render: function(envText) {
@@ -172,7 +203,7 @@ return view.extend({
 			env[key] = Object.prototype.hasOwnProperty.call(parsed, key) ? parsed[key] : (DEFAULTS[key] || '');
 		});
 
-		var m = new form.JSONMap({ env: env }, _('IPTV Refresh environment'), _('Structured editor for playlist, rtp2httpd, EPG, logo, catch-up, and provider options. Unknown variables and comments in hb.env are preserved.'));
+		var m = new form.JSONMap({ env: env }, _('IPTV Refresh environment'), _('Structured editor for playlist, rtp2httpd, EPG, logo, catch-up, and provider options. Unknown variables and comments in the provider environment file are preserved.'));
 		m.readonly = !L.hasViewPermission();
 		m.tabbed = true;
 		var s = m.section(form.NamedSection, 'env', 'env');
@@ -229,7 +260,7 @@ return view.extend({
 		o = addValue(s, 'output', 'LINE_TAG_SD', _('SD tag'), null, null, '标清');
 		o.depends('LINE_TAG_RULE', 'hd_sd');
 
-		addValue(s, 'rtp2httpd', 'R2H_BASE_URL', _('rtp2httpd base URL'), _('Use the host and port configured under rtp2httpd Listen Addresses, for example http://10.1.1.1:5140.'), null, DEFAULTS.R2H_BASE_URL);
+		addValue(s, 'rtp2httpd', 'R2H_BASE_URL', _('rtp2httpd base URL'), _('Use the host and port configured under rtp2httpd Listen Addresses, for example http://router.lan:5140.'), null, 'http://router.lan:5140');
 		o = addValue(s, 'rtp2httpd', 'R2H_TOKEN', _('R2H token'), _('Must match the R2H Token configured in luci-app-rtp2httpd.'));
 		o.password = true;
 
@@ -246,7 +277,7 @@ return view.extend({
 		o.depends('R2H_ADD_FCC', '1');
 
 		addFlag(s, 'rtp2httpd', 'R2H_PROXY_RTSP', _('Proxy RTSP streams'), _('Rewrite RTSP streams through the rtp2httpd /rtsp/ endpoint.'), '1');
-		addValue(s, 'rtp2httpd', 'R2H_CATCHUP_HOST', _('Catch-up proxy host'), _('Host and port without a scheme, for example 10.1.1.1:5140.'), null, DEFAULTS.R2H_CATCHUP_HOST);
+		addValue(s, 'rtp2httpd', 'R2H_CATCHUP_HOST', _('Catch-up proxy host'), _('Host and port without a scheme, for example router.lan:5140.'), null, 'router.lan:5140');
 		addValue(s, 'rtp2httpd', 'CATCHUP_TYPE', _('M3U catch-up type'), null, null, 'shift');
 		addValue(s, 'rtp2httpd', 'CATCHUP_PLAYSEEK_TEMPLATE', _('Catch-up playseek template'), null, null, DEFAULTS.CATCHUP_PLAYSEEK_TEMPLATE);
 		addValue(s, 'rtp2httpd', 'CATCHUP_SEEK_OFFSET', _('Catch-up seek offset'), _('Seconds added to the rtp2httpd catch-up request.'), 'integer', '-900');
@@ -260,7 +291,7 @@ return view.extend({
 		addFlag(s, 'epg', 'EPG_REPLACE_NAME', _('Replace provider names with EPG names'), null, '0');
 		addValue(s, 'epg', 'LOGO_MATCH_SOURCE', _('Logo matching playlist'), null, null, DEFAULTS.LOGO_MATCH_SOURCE);
 		addValue(s, 'epg', 'LOGO_URL_BASE', _('Logo URL base'));
-		addValue(s, 'epg', 'LOGO_OVERRIDES_FILE', _('Logo overrides file'), null, null, '/mnt/sda1/iptv/config/local/logo_overrides.csv');
+		addValue(s, 'epg', 'LOGO_OVERRIDES_FILE', _('Logo overrides file'), null, null, '/mnt/iptv/iptv-refresh/config/local/logo_overrides.csv');
 		addValue(s, 'epg', 'LOGO_MATCH_THRESHOLD', _('Logo match threshold'), _('Similarity from 0 to 1.'), 'ufloat', '0.65');
 		addFlag(s, 'epg', 'LOCAL_LOGO_CACHE', _('Cache logos locally'), null, '1');
 		o = addValue(s, 'epg', 'LOCAL_LOGO_DIR', _('Local logo directory'), null, null, DEFAULTS.LOCAL_LOGO_DIR);
@@ -273,22 +304,22 @@ return view.extend({
 		addValue(s, 'provider', 'CAPTURE_TIMEOUT', _('Credential capture timeout'), _('Seconds to wait for STB traffic.'), 'uinteger', '180');
 		addValue(s, 'provider', 'REFRESH_TIMEOUT', _('Overall refresh timeout'), _('Maximum seconds for one complete refresh, including credential capture.'), 'uinteger', '300');
 		addValue(s, 'provider', 'DUMP_PATH', _('Capture dump path'), _('Optional diagnostic file containing sensitive raw provider traffic. Leave empty for normal use.'));
-		addValue(s, 'provider', 'HB_TOKEN_SERVER', _('Token server'), null, null, DEFAULTS.HB_TOKEN_SERVER);
-		addValue(s, 'provider', 'HB_PLATFORM_ORIGIN', _('Platform origin'), _('Use auto to prefer captured values.'), null, 'auto');
-		addValue(s, 'provider', 'HB_EPG_ENTRY', _('Provider EPG entry'), _('Use auto to prefer captured values.'), null, 'auto');
-		addValue(s, 'provider', 'HB_EPG_ENTRY_FALLBACKS', _('Provider EPG fallbacks'), _('Separate multiple URLs with commas, semicolons, or spaces.'));
-		addValue(s, 'provider', 'HB_EASIP', _('EAS IP'), _('Use auto to prefer captured values.'), null, 'auto');
-		addValue(s, 'provider', 'HB_NETWORKID', _('Network ID'), _('Use auto to prefer captured values.'), null, 'auto');
-		addValue(s, 'provider', 'HB_CITYCODE', _('City code'));
-		addValue(s, 'provider', 'HB_STB_TYPE', _('STB type'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
-		addValue(s, 'provider', 'HB_PRMID', _('STB PRMID'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
-		addValue(s, 'provider', 'HB_DRM_SUPPLIER', _('STB DRM supplier'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
-		addValue(s, 'provider', 'HB_BIND_INTERFACE', _('Provider HTTP interface override'), _('Use auto to follow the IPTV interface, none to follow the routing table, or enter a specific device name.'), null, DEFAULTS.HB_BIND_INTERFACE);
-		addValue(s, 'provider', 'HB_BIND_SOURCE_IP', _('Provider source IP'));
-		addValue(s, 'provider', 'HB_USER_AGENT', _('Provider User-Agent'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
-		addValue(s, 'provider', 'HB_TIMEOUT', _('Provider HTTP timeout'), _('Seconds.'), 'uinteger', '20');
+		addValue(s, 'provider', 'PROVIDER_TOKEN_SERVER', _('Token server'), _('Use auto to discover the value during credential capture.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_PLATFORM_ORIGIN', _('Platform origin'), _('Use auto to prefer captured values.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_EPG_ENTRY', _('Provider EPG entry'), _('Use auto to prefer captured values.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_EPG_ENTRY_FALLBACKS', _('Provider EPG fallbacks'), _('Separate multiple URLs with commas, semicolons, or spaces.'));
+		addValue(s, 'provider', 'PROVIDER_EASIP', _('EAS IP'), _('Use auto to prefer captured values.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_NETWORKID', _('Network ID'), _('Use auto to prefer captured values.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_CITYCODE', _('City code'));
+		addValue(s, 'provider', 'PROVIDER_STB_TYPE', _('STB type'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_PRMID', _('STB PRMID'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_DRM_SUPPLIER', _('STB DRM supplier'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_BIND_INTERFACE', _('Provider HTTP interface override'), _('Use auto to follow the credential capture interface, none to follow the routing table, or enter a specific device name.'), null, DEFAULTS.PROVIDER_BIND_INTERFACE);
+		addValue(s, 'provider', 'PROVIDER_BIND_SOURCE_IP', _('Provider source IP'));
+		addValue(s, 'provider', 'PROVIDER_USER_AGENT', _('Provider User-Agent'), _('Use auto to replay the value captured from the STB.'), null, 'auto');
+		addValue(s, 'provider', 'PROVIDER_TIMEOUT', _('Provider HTTP timeout'), _('Seconds.'), 'uinteger', '20');
 
-		o = s.taboption('raw', form.TextValue, '_raw_preview', _('Current hb.env'), _('Read-only preview. Known settings are edited in the tabs above; unknown variables and comments are preserved when saving.'));
+		o = s.taboption('raw', form.TextValue, '_raw_preview', _('Current provider environment'), _('Read-only preview. Known settings are edited in the tabs above; unknown variables and comments are preserved when saving.'));
 		o.rows = 30;
 		o.wrap = 'off';
 		o.monospace = true;
@@ -304,7 +335,7 @@ return view.extend({
 		return this.environmentMap.parse().then(function() {
 			var values = self.environmentMap.data.get('json', 'env');
 			var content = updateEnvironment(self.originalEnvironment, values);
-			return fs.write(ENV_FILE, content).then(function() {
+			return fs.write(self.envFile || DEFAULT_ENV_FILE, content).then(function() {
 				return fs.exec(ACTION_HELPER, [ 'chmod-env' ]);
 			}).then(function(result) {
 				if (result.code !== 0)

@@ -14,7 +14,7 @@ body:
     id: version
     attributes:
       label: IPTV Refresh version
-      placeholder: 0.1.0-r17
+      placeholder: 0.1.0-r18
     validations:
       required: true
 

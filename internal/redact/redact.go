@@ -4,7 +4,7 @@ import "regexp"
 
 var sensitivePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)((?:UserToken|UserID|STBID|Authenticator|stbinfo|prmid)=)[^&\s"'<>]+`),
-	regexp.MustCompile(`(?im)^((?:HB_)?(?:USER_TOKEN|USER_ID|STBID|AUTHENTICATOR|STBINFO|PRMID)=).*$`),
+	regexp.MustCompile(`(?im)^((?:(?:HB|PROVIDER)_)?(?:USER_TOKEN|USER_ID|STBID|AUTHENTICATOR|STBINFO|PRMID)=).*$`),
 	regexp.MustCompile(`(?i)(CTCSetConfig\(\s*['"]UserToken['"]\s*,\s*['"])[^'"]+`),
 }
 

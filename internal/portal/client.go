@@ -1,4 +1,4 @@
-package hbiptv
+package portal
 
 import (
 	"context"

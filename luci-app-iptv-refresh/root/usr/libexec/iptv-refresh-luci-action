@@ -7,8 +7,9 @@ config_load iptv-refresh
 config_get listen_host main listen_host 127.0.0.1
 config_get listen_port main listen_port 9100
 config_get token_file main token_file /etc/iptv-refresh/token
-config_get iface main iface eth3.3927
-config_get repo_root main repo_root /mnt/sda1/iptv
+config_get iface main iface any
+config_get repo_root main repo_root /mnt/iptv/iptv-refresh
+config_get env_file main env_file /etc/iptv-refresh/provider.env
 
 valid_log_size() {
 	case "$1" in
@@ -41,9 +42,15 @@ case "$action" in
 			--capture
 		;;
 	chmod-env)
-		# The LuCI editor is intentionally restricted to this exact path by
-		# rpcd ACL. Do not derive a chmod target from writable UCI data.
-		chmod 0600 /etc/iptv-refresh/hb.env
+		case "$env_file" in
+			/etc/iptv-refresh/provider.env|/etc/iptv-refresh/hb.env)
+				chmod 0600 "$env_file"
+				;;
+			*)
+				echo "ERROR: environment file is outside the LuCI allowlist" >&2
+				exit 1
+				;;
+		esac
 		;;
 	clear-log)
 		umask 077

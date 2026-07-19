@@ -65,6 +65,10 @@ const rpc = {
 	}
 };
 const ui = { addNotification() {} };
+const uci = {
+	load: () => Promise.resolve(),
+	get: () => '/etc/iptv-refresh/provider.env'
+};
 const view = { extend: value => value };
 const L = {
 	resolveDefault: promise => promise,
@@ -74,35 +78,38 @@ const translate = value => value;
 const element = () => ({});
 
 const source = fs.readFileSync(sourcePath, 'utf8');
-const loadView = new Function('view', 'form', 'fs', 'rpc', 'ui', 'L', '_', 'E', source);
-const app = loadView(view, form, luciFS, rpc, ui, L, translate, element);
+const loadView = new Function('view', 'form', 'fs', 'rpc', 'ui', 'uci', 'L', '_', 'E', source);
+const app = loadView(view, form, luciFS, rpc, ui, uci, L, translate, element);
 
 const original = [
 	'# preserved comment',
 	'MODE=auto',
 	'R2H_TOKEN=secret-token',
+	'HB_BIND_INTERFACE=none',
 	'UNKNOWN_OPTION=keep-me',
 	''
 ].join('\n');
 
 app.render(original);
 assert.strictEqual(app.environmentMap.lastSection.hidetitle, true);
-assert.strictEqual(app.environmentMap.raw.env.HB_BIND_INTERFACE, 'auto');
+assert.strictEqual(app.environmentMap.raw.env.PROVIDER_BIND_INTERFACE, 'none');
 assert.strictEqual(app.environmentMap.raw.env.REFRESH_TIMEOUT, '300');
 assert.strictEqual(app.environmentMap.raw.env.DUMP_PATH, '');
-assert.strictEqual(app.environmentMap.raw.env.HB_STB_TYPE, 'auto');
-assert.strictEqual(app.environmentMap.raw.env.HB_USER_AGENT, 'auto');
+assert.strictEqual(app.environmentMap.raw.env.PROVIDER_STB_TYPE, 'auto');
+assert.strictEqual(app.environmentMap.raw.env.PROVIDER_USER_AGENT, 'auto');
 assert(!app.environmentMap.raw.env._raw_preview.includes('secret-token'));
 assert(app.environmentMap.raw.env._raw_preview.includes('R2H_TOKEN=********'));
 
 app.environmentMap.raw.env.MODE = 'igmp';
-app.writeEnvironment(true).then(() => {
+Promise.resolve(app.load()).then(() => app.writeEnvironment(true)).then(() => {
 	assert.strictEqual(writes.length, 1);
-	assert.strictEqual(writes[0].path, '/etc/iptv-refresh/hb.env');
+	assert.strictEqual(writes[0].path, '/etc/iptv-refresh/provider.env');
 	assert(writes[0].content.includes('# preserved comment'));
 	assert(writes[0].content.includes('UNKNOWN_OPTION=keep-me'));
 	assert(writes[0].content.includes('MODE="igmp"'));
 	assert(writes[0].content.includes('R2H_TOKEN="secret-token"'));
+	assert(writes[0].content.includes('PROVIDER_BIND_INTERFACE="none"'));
+	assert(!writes[0].content.includes('HB_BIND_INTERFACE'));
 	assert.deepStrictEqual(execs[0], {
 		path: '/usr/libexec/iptv-refresh-luci-action',
 		args: [ 'chmod-env' ]

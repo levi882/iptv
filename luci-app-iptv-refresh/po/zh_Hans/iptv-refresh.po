@@ -85,8 +85,8 @@ msgstr "凭据捕获超时"
 msgid "Credential capture and playlist refresh started. Keep the STB powered on."
 msgstr "已开始抓取凭据并刷新播放列表，请保持机顶盒开机。"
 
-msgid "Current hb.env"
-msgstr "当前 hb.env"
+msgid "Current provider environment"
+msgstr "当前运营商环境配置"
 
 msgid "Data root"
 msgstr "数据根目录"
@@ -157,8 +157,8 @@ msgstr "授予 IPTV 刷新 LuCI 应用访问权限"
 msgid "HD tag"
 msgstr "高清标签"
 
-msgid "Host and port without a scheme, for example 10.1.1.1:5140."
-msgstr "不含协议的主机和端口，例如 10.1.1.1:5140。"
+msgid "Host and port without a scheme, for example router.lan:5140."
+msgstr "不含协议的主机和端口，例如 router.lan:5140。"
 
 msgid "IPTV Refresh"
 msgstr "IPTV 刷新"
@@ -169,8 +169,8 @@ msgstr "IPTV 刷新环境配置"
 msgid "IPTV Refresh settings"
 msgstr "IPTV 刷新设置"
 
-msgid "IPTV interface"
-msgstr "IPTV 接口"
+msgid "Credential capture interface"
+msgstr "凭据抓取接口"
 
 msgid "Idle"
 msgstr "空闲"
@@ -178,11 +178,11 @@ msgstr "空闲"
 msgid "Infer group-title values from the 51zmt reference playlist."
 msgstr "根据 51zmt 参考播放列表推断 group-title 值。"
 
-msgid "Interface used for STB credential capture. Provider HTTP requests follow this interface unless overridden under Environment."
-msgstr "用于捕获机顶盒凭据。除非在环境页面中覆盖，否则运营商 HTTP 请求也使用此接口。"
+msgid "Interface used only for STB credential capture. Choose any when the login path is uncertain, and cold-boot the STB after capture starts."
+msgstr "仅用于捕获机顶盒凭据。登录流量路径不确定时请选择“所有接口”，并在抓包开始后冷启动机顶盒。"
 
-msgid "Use auto to follow the IPTV interface, none to follow the routing table, or enter a specific device name."
-msgstr "使用 auto 跟随 IPTV 接口，使用 none 按系统路由表选择出口，或填写指定设备名称。"
+msgid "Use auto to follow the credential capture interface, none to follow the routing table, or enter a specific device name."
+msgstr "使用 auto 跟随凭据抓取接口，使用 none 按系统路由表选择出口，或填写指定设备名称。"
 
 msgid "Keep original names"
 msgstr "保留原名称"
@@ -421,8 +421,8 @@ msgstr "已停止或不可用"
 msgid "Stream preference"
 msgstr "直播流偏好"
 
-msgid "Structured editor for playlist, rtp2httpd, EPG, logo, catch-up, and provider options. Unknown variables and comments in hb.env are preserved."
-msgstr "用于编辑播放列表、rtp2httpd、EPG、台标、回看和运营商选项的结构化界面。hb.env 中的未知变量和注释会被保留。"
+msgid "Structured editor for playlist, rtp2httpd, EPG, logo, catch-up, and provider options. Unknown variables and comments in the provider environment file are preserved."
+msgstr "用于编辑播放列表、rtp2httpd、EPG、台标、回看和运营商选项的结构化界面。运营商环境配置文件中的未知变量和注释会被保留。"
 
 msgid "The service returned an invalid status response"
 msgstr "服务返回了无效的状态响应"
@@ -457,8 +457,8 @@ msgstr "使用 auto 可优先采用捕获到的值。"
 msgid "Use cached provider data"
 msgstr "使用缓存的运营商数据"
 
-msgid "Use the host and port configured under rtp2httpd Listen Addresses, for example http://10.1.1.1:5140."
-msgstr "使用 rtp2httpd“监听地址”中配置的主机和端口，例如 http://10.1.1.1:5140。"
+msgid "Use the host and port configured under rtp2httpd Listen Addresses, for example http://router.lan:5140."
+msgstr "使用 rtp2httpd“监听地址”中配置的主机和端口，例如 http://router.lan:5140。"
 
 msgid "User channel ID"
 msgstr "用户频道 ID"
@@ -475,8 +475,8 @@ msgstr "未知"
 msgid "Provider HTTP interface"
 msgstr "运营商 HTTP 接口"
 
-msgid "Interface used for provider authentication and channel downloads. Choose auto to follow the capture interface, or none to follow the routing table. An explicit HB_BIND_INTERFACE value under Environment takes precedence."
-msgstr "用于运营商认证和频道下载的接口。选择 auto 将跟随抓包接口，选择 none 将使用系统路由表；环境页面中明确设置的 HB_BIND_INTERFACE 优先。"
+msgid "Logical interface used for provider authentication and channel downloads. Raw VLAN and any capture interfaces usually have no IPv4, so select the addressed DHCP/PPPoE IPTV interface explicitly. An explicit provider interface override under Environment takes precedence."
+msgstr "用于运营商认证和下载频道的逻辑接口。原始 VLAN 和“所有接口”通常没有 IPv4 地址，因此请明确选择已获取地址的 DHCP/PPPoE IPTV 接口；环境页面中的运营商接口覆盖设置优先。"
 
 msgid "Follow capture interface"
 msgstr "跟随抓包接口"
@@ -547,8 +547,8 @@ msgstr "重新抓取凭据时先启动抓包，再调用配置的 Home Assistant
 msgid "Home Assistant webhook URL"
 msgstr "Home Assistant Webhook 地址"
 
-msgid "Use a local-only Home Assistant webhook such as http://192.168.1.2:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line."
-msgstr "请使用仅限本地访问的 Home Assistant Webhook，例如 http://192.168.1.2:8123/api/webhook/随机ID。该地址按敏感信息处理，不会出现在服务命令行中。"
+msgid "Use a local-only Home Assistant webhook such as http://homeassistant.lan:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line."
+msgstr "请使用仅限本地访问的 Home Assistant Webhook，例如 http://homeassistant.lan:8123/api/webhook/随机ID。该地址按敏感信息处理，不会出现在服务命令行中。"
 
 msgid "Home Assistant webhook timeout"
 msgstr "Home Assistant Webhook 超时"
@@ -561,3 +561,21 @@ msgstr "普通刷新不需要机顶盒。抓取凭据时，程序会在抓包启
 
 msgid "Only these IP addresses or CIDR networks may use the token-injecting nginx refresh route. Prefer the exact Home Assistant IP when it is static."
 msgstr "仅允许这些 IP 地址或 CIDR 网段使用自动注入令牌的 nginx 刷新路由。Home Assistant 使用静态地址时，建议只填写其准确 IP。"
+
+msgid "All interfaces"
+msgstr "所有接口"
+
+msgid "STB type"
+msgstr "机顶盒型号"
+
+msgid "STB PRMID"
+msgstr "机顶盒 PRMID"
+
+msgid "STB DRM supplier"
+msgstr "机顶盒 DRM 提供商"
+
+msgid "Use auto to replay the value captured from the STB."
+msgstr "使用 auto 可重放从机顶盒捕获到的值。"
+
+msgid "Use auto to discover the value during credential capture."
+msgstr "使用 auto 可在抓取凭据时自动发现该值。"

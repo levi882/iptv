@@ -11,7 +11,7 @@ func TestLoadPackagedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	settings, _, err := LoadSettings(repo, filepath.Join(repo, "openwrt", "files", "hb.env"))
+	settings, _, err := LoadSettings(repo, filepath.Join(repo, "openwrt", "files", "provider.env"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,8 +37,8 @@ func TestProviderBindInterfaceModes(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()
-			envPath := filepath.Join(dir, "hb.env")
-			content := "IFACE=eth-test\nHB_BIND_INTERFACE=" + test.value + "\n"
+			envPath := filepath.Join(dir, "provider.env")
+			content := "IFACE=eth-test\nPROVIDER_BIND_INTERFACE=" + test.value + "\n"
 			if err := os.WriteFile(envPath, []byte(content), 0o600); err != nil {
 				t.Fatal(err)
 			}

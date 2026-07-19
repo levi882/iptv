@@ -48,6 +48,9 @@ if (!source.includes("'stb_power_enabled'") || !source.includes("'ha_webhook_url
 if (!source.includes("o.value('127.0.0.1')")) {
 	throw new Error('Home Assistant compatibility proxy is not loopback-only by default');
 }
+if (!source.includes("var ENV_FILE = '/etc/iptv-refresh/provider.env'") || !source.includes("o.default = 'any'") || !source.includes("o.default = 'none'")) {
+	throw new Error('Provider-neutral environment path or capture-interface default is missing');
+}
 const loadView = new Function('view', 'form', 'uci', 'widgets', '_', source);
 const app = loadView(view, form, uci, widgets, translate);
 

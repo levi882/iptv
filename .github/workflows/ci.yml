@@ -57,6 +57,7 @@ jobs:
       - name: Run LuCI checks
         run: |
           node tools/check-luci-js.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/*.js
+          node tools/check-luci-translations.cjs luci-app-iptv-refresh/po/zh_Hans/iptv-refresh.po luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/*.js
           node tools/test-luci-overview.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/overview.js
           node tools/test-luci-settings.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/settings.js
           node tools/test-luci-environment.cjs luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/environment.js

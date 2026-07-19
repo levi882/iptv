@@ -16,6 +16,13 @@ fail() {
 grep -q '^PKG_LICENSE:=Apache-2.0$' openwrt/Makefile || fail "backend package license is not Apache-2.0"
 grep -q '^PKG_LICENSE:=Apache-2.0$' luci-app-iptv-refresh/Makefile || fail "LuCI package license is not Apache-2.0"
 grep -q '^DEFAULT_ALLOW=127\.0\.0\.1$' openwrt/files/iptv-refresh-nginx-config || fail "nginx proxy default is not loopback-only"
+grep -q "option iface 'any'" openwrt/files/iptv-refresh.uci || fail "capture interface default is deployment-specific"
+grep -q '^PROVIDER_TOKEN_SERVER=auto$' openwrt/files/provider.env || fail "provider endpoint discovery is not automatic"
+
+public_files='README.md CONTRIBUTING.md SECURITY.md THIRD_PARTY_NOTICES.md openwrt/files/provider.env luci-app-iptv-refresh/htdocs/luci-static/resources/view/iptv-refresh/settings.js luci-app-iptv-refresh/po/zh_Hans/iptv-refresh.po'
+if grep -n -i -E 'Hubei|湖北|eth3\.3927|121\.60\.255\.|10\.1\.1\.|/mnt/sda1/iptv|hb\.env|HB_[A-Z]' $public_files; then
+	fail "deployment-specific names or addresses remain in public documentation/defaults"
+fi
 
 token="$(tr -d '\r\n' < openwrt/files/token)"
 [ "$token" = change-me ] || fail "tracked API token is not the placeholder"
@@ -27,8 +34,8 @@ framesets="$(git ls-files | grep -E '(^|/)frameset_builder[^/]*\.jsp$' | grep -v
 [ -z "$framesets" ] || fail "non-synthetic provider snapshots are tracked:\n$framesets"
 
 credential_assignments="$(
-	git grep -I -n -E '^HB_(USER_ID|USER_TOKEN|AUTHENTICATOR|STBID|STBINFO)=[^[:space:]#]+' -- . \
-		| grep -v -E '^internal/redact/redact_test\.go:[0-9]+:HB_AUTHENTICATOR=abcdef$' \
+	git grep -I -n -E '^(HB|PROVIDER)_(USER_ID|USER_TOKEN|AUTHENTICATOR|STBID|STBINFO)=[^[:space:]#]+' -- . \
+		| grep -v -E '^internal/redact/redact_test\.go:[0-9]+:PROVIDER_AUTHENTICATOR=abcdef$' \
 		|| true
 )"
 if [ -n "$credential_assignments" ]; then

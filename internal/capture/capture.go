@@ -89,25 +89,25 @@ func (b *safeBuffer) Truncated() bool {
 }
 
 var patterns = map[string]*regexp.Regexp{
-	"HB_USER_ID":         regexp.MustCompile(`UserID=([^&\s]+)`),
-	"HB_AUTHENTICATOR":   regexp.MustCompile(`(?i)Authenticator=([0-9a-f]+)`),
-	"HB_STBID":           regexp.MustCompile(`(?i)STBID=([0-9a-f]+)`),
-	"HB_STBINFO":         regexp.MustCompile(`(?i)stbinfo=([0-9a-f]+)`),
-	"HB_USER_TOKEN":      regexp.MustCompile(`UserToken=([_A-Za-z0-9-]+)`),
-	"HB_STB_TYPE":        regexp.MustCompile(`(?i)stbtype=([^&\s]+)`),
-	"HB_PRMID":           regexp.MustCompile(`(?i)prmid=([^&\s]*)`),
-	"HB_DRM_SUPPLIER":    regexp.MustCompile(`(?i)drmsupplier=([^&\s]*)`),
-	"HB_CITYCODE":        regexp.MustCompile(`citycode=([0-9]+)`),
-	"HB_NETWORKID":       regexp.MustCompile(`networkid=([0-9]+)`),
-	"HB_EASIP":           regexp.MustCompile(`easip=([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)`),
-	"HB_PLATFORM_ORIGIN": regexp.MustCompile(`(http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:8080)/iptvepg/platform/index\.jsp`),
-	"HB_EPG_ENTRY":       regexp.MustCompile(`(http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:8080)/iptvepg/function/(?:index|funcportalauth|frameset_builder)\.jsp`),
-	"HB_USER_AGENT":      regexp.MustCompile(`(?im)^User-Agent:[ \t]*([^\r\n]+)`),
+	"PROVIDER_USER_ID":         regexp.MustCompile(`UserID=([^&\s]+)`),
+	"PROVIDER_AUTHENTICATOR":   regexp.MustCompile(`(?i)Authenticator=([0-9a-f]+)`),
+	"PROVIDER_STBID":           regexp.MustCompile(`(?i)STBID=([0-9a-f]+)`),
+	"PROVIDER_STBINFO":         regexp.MustCompile(`(?i)stbinfo=([0-9a-f]+)`),
+	"PROVIDER_USER_TOKEN":      regexp.MustCompile(`UserToken=([_A-Za-z0-9-]+)`),
+	"PROVIDER_STB_TYPE":        regexp.MustCompile(`(?i)stbtype=([^&\s]+)`),
+	"PROVIDER_PRMID":           regexp.MustCompile(`(?i)prmid=([^&\s]*)`),
+	"PROVIDER_DRM_SUPPLIER":    regexp.MustCompile(`(?i)drmsupplier=([^&\s]*)`),
+	"PROVIDER_CITYCODE":        regexp.MustCompile(`citycode=([0-9]+)`),
+	"PROVIDER_NETWORKID":       regexp.MustCompile(`networkid=([0-9]+)`),
+	"PROVIDER_EASIP":           regexp.MustCompile(`easip=([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)`),
+	"PROVIDER_PLATFORM_ORIGIN": regexp.MustCompile(`(https?://[A-Za-z0-9.-]+(?::[0-9]+)?)/iptvepg/platform/index\.jsp`),
+	"PROVIDER_EPG_ENTRY":       regexp.MustCompile(`(https?://[A-Za-z0-9.-]+(?::[0-9]+)?)/iptvepg/function/(?:index|funcportalauth|frameset_builder)\.jsp`),
+	"PROVIDER_USER_AGENT":      regexp.MustCompile(`(?im)^User-Agent:[ \t]*([^\r\n]+)`),
 }
 
 var configTokenPattern = regexp.MustCompile(`CTCSetConfig\('UserToken','([_A-Za-z0-9-]+)'`)
 var channelTokenPattern = regexp.MustCompile(`GetChannelList\?UserToken=([_A-Za-z0-9-]+)`)
-var tokenServerPattern = regexp.MustCompile(`(?i)(?:Host:\s*|https?://)([0-9]+(?:\.[0-9]+){3}):4338`)
+var tokenServerPattern = regexp.MustCompile(`(?i)(?:Host:\s*|https?://)([A-Za-z0-9.-]+):4338`)
 
 func lastMatch(re *regexp.Regexp, raw []byte) string {
 	matches := re.FindAllSubmatch(raw, -1)
@@ -131,57 +131,46 @@ func decodedFormValue(value string) string {
 }
 
 func Parse(raw []byte, fallback config.Env, tokenHost string) config.Env {
+	fallback = fallback.NormalizeProviderKeys()
 	out := config.Env{}
 	for key, re := range patterns {
 		out[key] = lastMatch(re, raw)
 	}
-	for _, key := range []string{"HB_STB_TYPE", "HB_PRMID", "HB_DRM_SUPPLIER"} {
+	for _, key := range []string{"PROVIDER_STB_TYPE", "PROVIDER_PRMID", "PROVIDER_DRM_SUPPLIER"} {
 		out[key] = decodedFormValue(out[key])
 	}
-	if out["HB_USER_TOKEN"] == "" {
-		out["HB_USER_TOKEN"] = lastMatch(configTokenPattern, raw)
+	if out["PROVIDER_USER_TOKEN"] == "" {
+		out["PROVIDER_USER_TOKEN"] = lastMatch(configTokenPattern, raw)
 	}
-	if out["HB_USER_TOKEN"] == "" {
-		out["HB_USER_TOKEN"] = lastMatch(channelTokenPattern, raw)
+	if out["PROVIDER_USER_TOKEN"] == "" {
+		out["PROVIDER_USER_TOKEN"] = lastMatch(channelTokenPattern, raw)
 	}
 	for key, value := range fallback {
 		if out[key] == "" {
 			out[key] = value
 		}
 	}
-	out["HB_AUTHENTICATOR"] = strings.ToUpper(out["HB_AUTHENTICATOR"])
-	out["HB_STBID"] = strings.ToUpper(out["HB_STBID"])
-	out["HB_STBINFO"] = strings.ToUpper(out["HB_STBINFO"])
-	out["HB_USER_TOKEN"] = strings.Map(func(r rune) rune {
+	out["PROVIDER_AUTHENTICATOR"] = strings.ToUpper(out["PROVIDER_AUTHENTICATOR"])
+	out["PROVIDER_STBID"] = strings.ToUpper(out["PROVIDER_STBID"])
+	out["PROVIDER_STBINFO"] = strings.ToUpper(out["PROVIDER_STBINFO"])
+	out["PROVIDER_USER_TOKEN"] = strings.Map(func(r rune) rune {
 		if r == '_' || r == '-' || r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' {
 			return r
 		}
 		return -1
-	}, out["HB_USER_TOKEN"])
+	}, out["PROVIDER_USER_TOKEN"])
 	if capturedTokenHost := lastMatch(tokenServerPattern, raw); capturedTokenHost != "" {
 		tokenHost = capturedTokenHost
 	}
-	if tokenHost == "" {
-		tokenHost = "121.60.255.37"
-	}
-	out["HB_TOKEN_SERVER"] = "http://" + tokenHost + ":4338"
-	if out["HB_EPG_ENTRY"] == "" {
-		out["HB_EPG_ENTRY"] = "http://121.60.255.4:8080"
-	}
-	if out["HB_EASIP"] == "" {
-		out["HB_EASIP"] = "121.60.255.4"
-	}
-	if out["HB_NETWORKID"] == "" {
-		out["HB_NETWORKID"] = "1"
-	}
-	if out["HB_PLATFORM_ORIGIN"] == "" {
-		out["HB_PLATFORM_ORIGIN"] = "http://121.60.255.6:8080"
+	if tokenHost != "" && !strings.EqualFold(tokenHost, "auto") {
+		out["PROVIDER_TOKEN_SERVER"] = "http://" + tokenHost + ":4338"
 	}
 	return out
 }
 
 func Complete(env config.Env) bool {
-	return env["HB_USER_ID"] != "" && (env["HB_AUTHENTICATOR"] != "" || env["HB_USER_TOKEN"] != "") && env["HB_STBID"] != "" && env["HB_STBINFO"] != ""
+	env = env.NormalizeProviderKeys()
+	return env["PROVIDER_USER_ID"] != "" && (env["PROVIDER_AUTHENTICATOR"] != "" || env["PROVIDER_USER_TOKEN"] != "") && env["PROVIDER_STBID"] != "" && env["PROVIDER_STBINFO"] != ""
 }
 
 func capturedEnough(raw []byte, tokenHost string) bool {
@@ -190,15 +179,18 @@ func capturedEnough(raw []byte, tokenHost string) bool {
 	// the STB before its portal request appears. Wait for the fresh UserToken
 	// and both device fields so one capture cannot mix a new login with cached
 	// credentials from a different session or set-top box.
-	return fresh["HB_USER_ID"] != "" && fresh["HB_USER_TOKEN"] != "" &&
-		fresh["HB_STBID"] != "" && fresh["HB_STBINFO"] != ""
+	return fresh["PROVIDER_USER_ID"] != "" && fresh["PROVIDER_USER_TOKEN"] != "" &&
+		fresh["PROVIDER_STBID"] != "" && fresh["PROVIDER_STBINFO"] != "" &&
+		fresh["PROVIDER_TOKEN_SERVER"] != "" && fresh["PROVIDER_PLATFORM_ORIGIN"] != "" &&
+		fresh["PROVIDER_EPG_ENTRY"] != "" && fresh["PROVIDER_EASIP"] != "" &&
+		fresh["PROVIDER_NETWORKID"] != "" && fresh["PROVIDER_STB_TYPE"] != ""
 }
 
 func Save(path string, env config.Env) error {
 	keys := []string{
-		"HB_USER_ID", "HB_STBID", "HB_AUTHENTICATOR", "HB_STBINFO", "HB_USER_TOKEN",
-		"HB_STB_TYPE", "HB_PRMID", "HB_DRM_SUPPLIER", "HB_USER_AGENT",
-		"HB_TOKEN_SERVER", "HB_EPG_ENTRY", "HB_EASIP", "HB_NETWORKID", "HB_CITYCODE", "HB_PLATFORM_ORIGIN",
+		"PROVIDER_USER_ID", "PROVIDER_STBID", "PROVIDER_AUTHENTICATOR", "PROVIDER_STBINFO", "PROVIDER_USER_TOKEN",
+		"PROVIDER_STB_TYPE", "PROVIDER_PRMID", "PROVIDER_DRM_SUPPLIER", "PROVIDER_USER_AGENT",
+		"PROVIDER_TOKEN_SERVER", "PROVIDER_EPG_ENTRY", "PROVIDER_EASIP", "PROVIDER_NETWORKID", "PROVIDER_CITYCODE", "PROVIDER_PLATFORM_ORIGIN",
 	}
 	var b strings.Builder
 	for _, key := range keys {
@@ -333,9 +325,9 @@ func finish(raw []byte, truncated bool, opts Options) (config.Env, error) {
 			return nil, fmt.Errorf("credential capture exceeded the %d MiB safety limit before a complete login was found; reduce unrelated port 8080 traffic and retry", maxCaptureBytes>>20)
 		}
 		missing := []string{}
-		for _, key := range []string{"HB_USER_ID", "HB_USER_TOKEN", "HB_STBID", "HB_STBINFO"} {
+		for _, key := range []string{"PROVIDER_USER_ID", "PROVIDER_USER_TOKEN", "PROVIDER_STBID", "PROVIDER_STBINFO", "PROVIDER_TOKEN_SERVER", "PROVIDER_PLATFORM_ORIGIN", "PROVIDER_EPG_ENTRY", "PROVIDER_EASIP", "PROVIDER_NETWORKID", "PROVIDER_STB_TYPE"} {
 			if fresh[key] == "" {
-				missing = append(missing, strings.TrimPrefix(key, "HB_"))
+				missing = append(missing, strings.TrimPrefix(key, "PROVIDER_"))
 			}
 		}
 		return nil, fmt.Errorf("incomplete STB login capture (missing %s); start capture before cold-booting the STB and wait for portal login to finish", strings.Join(missing, ", "))

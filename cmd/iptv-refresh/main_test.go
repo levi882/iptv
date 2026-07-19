@@ -22,8 +22,8 @@ func TestLoadWithInterfaceOverride(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			dir := t.TempDir()
-			envPath := filepath.Join(dir, "hb.env")
-			content := "IFACE=eth-env\nHB_BIND_INTERFACE=" + test.bind + "\n"
+			envPath := filepath.Join(dir, "provider.env")
+			content := "IFACE=eth-env\nPROVIDER_BIND_INTERFACE=" + test.bind + "\n"
 			if err := os.WriteFile(envPath, []byte(content), 0o600); err != nil {
 				t.Fatal(err)
 			}

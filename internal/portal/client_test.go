@@ -1,4 +1,4 @@
-package hbiptv
+package portal
 
 import (
 	"context"
@@ -59,7 +59,7 @@ func TestFetchFlow(t *testing.T) {
 }
 
 func TestFetchDecodesGBKChannelNames(t *testing.T) {
-	frameset := `jsSetConfig('Channel','ChannelName="湖北卫视" ChannelURL="igmp://239.1.1.1:1234"');`
+	frameset := `jsSetConfig('Channel','ChannelName="示例卫视" ChannelURL="igmp://239.1.1.1:1234"');`
 	gbkFrameset, err := simplifiedchinese.GBK.NewEncoder().Bytes([]byte(frameset))
 	if err != nil {
 		t.Fatal(err)
@@ -86,12 +86,12 @@ func TestFetchDecodesGBKChannelNames(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(result.Frameset, "湖北卫视") || !utf8.ValidString(result.Frameset) {
+	if !strings.Contains(result.Frameset, "示例卫视") || !utf8.ValidString(result.Frameset) {
 		t.Fatalf("frameset was not converted to UTF-8: %q", result.Frameset)
 	}
 	channels := playlist.ParseChannels(result.Frameset, playlist.URLSelectParams{Mode: "auto"}, "none", "超高清", "高清", "标清")
 	rows, _, _ := playlist.ChannelsToRows(channels)
-	logos := map[string]string{playlist.NormalizeName("湖北卫视"): "http://logo/hubei.png"}
+	logos := map[string]string{playlist.NormalizeName("示例卫视"): "http://logo/example.png"}
 	if len(rows) != 1 || playlist.AttachLogos(rows, logos, .65) != 1 || rows[0].LogoURL == "" {
 		t.Fatalf("decoded channel did not recover logo matching: channels=%#v rows=%#v", channels, rows)
 	}
@@ -106,7 +106,7 @@ func TestDecodeResponseBodyFallsBackToGB18030(t *testing.T) {
 	if err != nil || string(decoded) != "广东珠江频道" {
 		t.Fatalf("GB18030 fallback = %q, %v", decoded, err)
 	}
-	utf8Body := []byte("湖北卫视")
+	utf8Body := []byte("示例卫视")
 	decoded, err = decodeResponseBody(utf8Body, "text/html; charset=utf-8")
 	if err != nil || string(decoded) != string(utf8Body) {
 		t.Fatalf("UTF-8 response changed: %q, %v", decoded, err)

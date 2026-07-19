@@ -7,8 +7,8 @@ config_load iptv-refresh
 config_get listen_host main listen_host 127.0.0.1
 config_get listen_port main listen_port 9100
 config_get token_file main token_file /etc/iptv-refresh/token
-config_get iface main iface eth3.3927
-config_get repo_root main repo_root /mnt/sda1/iptv
+config_get iface main iface any
+config_get repo_root main repo_root /mnt/iptv/iptv-refresh
 config_get log_max_size main log_max_size 1M
 log_file="${repo_root%/}/output/log/iptv_refresh.log"
 

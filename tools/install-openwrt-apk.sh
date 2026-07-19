@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-PACKAGE=${1:-/tmp/iptv-refresh-0.1.0-r9.apk}
+PACKAGE=${1:-/tmp/iptv-refresh-0.1.0-r18.apk}
 MODE=${2:-}
 EXPECTED_RELEASE=25.12.5
 EXPECTED_ARCH=x86_64
@@ -69,8 +69,12 @@ if [ "$listen_port" = "9099" ]; then
 fi
 unset listen_port
 
-chmod 600 "$CONFIG_DIR/hb.env" "$CONFIG_DIR/token"
-[ ! -e "$CONFIG_DIR/hb.creds.env" ] || chmod 600 "$CONFIG_DIR/hb.creds.env"
+env_file="$(uci -q get iptv-refresh.main.env_file 2>/dev/null || true)"
+creds_file="$(uci -q get iptv-refresh.main.creds_file 2>/dev/null || true)"
+[ -n "$env_file" ] || env_file="$CONFIG_DIR/provider.env"
+[ -n "$creds_file" ] || creds_file="$CONFIG_DIR/provider.creds.env"
+chmod 600 "$env_file" "$CONFIG_DIR/token"
+[ ! -e "$creds_file" ] || chmod 600 "$creds_file"
 
 token="$(head -n 1 "$CONFIG_DIR/token" 2>/dev/null || true)"
 [ -n "$token" ] && [ "$token" != "change-me" ] || {
