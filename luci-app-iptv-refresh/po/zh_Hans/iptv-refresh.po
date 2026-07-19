@@ -535,5 +535,29 @@ msgstr "日志大小上限"
 msgid "Log size limit updated to %s %s."
 msgstr "日志大小上限已更新为 %s %s。"
 
+msgid "STB automation"
+msgstr "机顶盒自动化"
+
+msgid "Power on STB through Home Assistant"
+msgstr "通过 Home Assistant 开启机顶盒"
+
+msgid "During credential recapture, start packet capture first and then call the configured Home Assistant webhook. Normal saved-credential refreshes never call it."
+msgstr "重新抓取凭据时先启动抓包，再调用配置的 Home Assistant Webhook；使用已保存凭据的普通刷新不会调用它。"
+
+msgid "Home Assistant webhook URL"
+msgstr "Home Assistant Webhook 地址"
+
+msgid "Use a local-only Home Assistant webhook such as http://10.1.1.2:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line."
+msgstr "请使用仅限本地访问的 Home Assistant Webhook，例如 http://10.1.1.2:8123/api/webhook/随机ID。该地址按敏感信息处理，不会出现在服务命令行中。"
+
+msgid "Home Assistant webhook timeout"
+msgstr "Home Assistant Webhook 超时"
+
+msgid "Seconds to wait for Home Assistant to accept the power-on request."
+msgstr "等待 Home Assistant 接受开机请求的秒数。"
+
+msgid "The normal refresh does not require the STB. During credential capture, a configured Home Assistant webhook is called after packet capture starts; otherwise power on the STB manually."
+msgstr "普通刷新不需要机顶盒。抓取凭据时，程序会在抓包启动后调用已配置的 Home Assistant Webhook；未配置时请手动开启机顶盒。"
+
 msgid "Only these IP addresses or CIDR networks may use the token-injecting nginx refresh route. Prefer the exact Home Assistant IP when it is static."
 msgstr "仅允许这些 IP 地址或 CIDR 网段使用自动注入令牌的 nginx 刷新路由。Home Assistant 使用静态地址时，建议只填写其准确 IP。"

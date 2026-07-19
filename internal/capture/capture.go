@@ -24,6 +24,8 @@ type Options struct {
 	TokenHost  string
 	TCPDump    string
 	Fallback   config.Env
+	OnReady    func(context.Context) error
+	ReadyDelay time.Duration
 }
 
 const (
@@ -253,6 +255,38 @@ func Run(ctx context.Context, opts Options) (config.Env, error) {
 	}
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
+	if opts.OnReady != nil {
+		delay := opts.ReadyDelay
+		if delay <= 0 {
+			delay = time.Second
+		}
+		timer := time.NewTimer(delay)
+		select {
+		case <-timer.C:
+		case err := <-done:
+			timer.Stop()
+			detail := strings.TrimSpace(string(diagnostics.BytesCopy()))
+			if detail != "" {
+				return nil, fmt.Errorf("tcpdump stopped before capture became ready: %v: %s", err, detail)
+			}
+			return nil, fmt.Errorf("tcpdump stopped before capture became ready: %v", err)
+		case <-ctx.Done():
+			timer.Stop()
+			_ = cmd.Process.Kill()
+			<-done
+			return nil, ctx.Err()
+		}
+		if err := opts.OnReady(ctx); err != nil {
+			cancel()
+			select {
+			case <-done:
+			case <-time.After(3 * time.Second):
+				_ = cmd.Process.Kill()
+				<-done
+			}
+			return nil, fmt.Errorf("power on STB after capture startup: %w", err)
+		}
+	}
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {

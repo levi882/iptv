@@ -42,6 +42,9 @@ if (!source.includes("'provider_iface'") || !source.includes("'Follow routing ta
 if (!source.includes("'nginx_proxy'") || !source.includes("'nginx_allow_ip'")) {
 	throw new Error('Home Assistant compatibility proxy settings are missing');
 }
+if (!source.includes("'stb_power_enabled'") || !source.includes("'ha_webhook_url'") || !source.includes("'ha_webhook_timeout'")) {
+	throw new Error('Home Assistant STB power-on settings are missing');
+}
 const loadView = new Function('view', 'form', 'uci', 'widgets', '_', source);
 const app = loadView(view, form, uci, widgets, translate);
 

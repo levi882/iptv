@@ -60,6 +60,16 @@ VLAN; `none` follows the normal routing table. A provider HTTP interface
 without an IPv4 address is rejected immediately instead of waiting for the
 network timeout.
 
+Credential recapture can optionally power on the STB through a Home Assistant
+webhook. Under LuCI **Settings > STB automation**, enable the integration and
+enter a local-only HA webhook URL. The backend starts `tcpdump`, waits one
+second for the listener to settle, and then sends an HTTP POST containing
+`{"action":"power_on_for_credential_capture","source":"iptv-refresh"}`.
+The HA automation can turn on or power-cycle the STB smart plug. The webhook is
+never called for normal saved-credential refreshes. Treat the random webhook
+ID as a secret; it is passed to the service through a protected process
+environment rather than the command line.
+
 On OpenWrt, the package generates an nginx compatibility route for Home
 Assistant. The external `/iptv/refresh` route accepts the existing GET call,
 injects the router's current token, converts the request to a backend POST,

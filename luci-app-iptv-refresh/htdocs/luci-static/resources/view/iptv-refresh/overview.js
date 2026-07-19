@@ -377,7 +377,7 @@ return view.extend({
 					E('button', { 'class': 'btn cbi-button cbi-button-action', 'id': 'iptv-restart-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleServiceAction', 'restart') }, _('Restart')),
 					E('button', { 'class': 'btn cbi-button cbi-button-negative', 'id': 'iptv-stop-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleServiceAction', 'stop') }, _('Stop')),
 					E('button', { 'class': 'btn cbi-button', 'id': 'iptv-download-button', 'hidden': 'hidden', 'click': ui.createHandlerFn(this, 'handleDownload') }, _('Download playlist')),
-					E('p', { 'class': 'iptv-action-hint' }, _('The normal refresh does not require the STB. Use credential capture only after saved credentials expire, and keep the STB powered on while capturing.'))
+					E('p', { 'class': 'iptv-action-hint' }, _('The normal refresh does not require the STB. During credential capture, a configured Home Assistant webhook is called after packet capture starts; otherwise power on the STB manually.'))
 				])
 			]),
 			E('div', { 'class': 'cbi-section' }, [

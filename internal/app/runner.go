@@ -20,6 +20,7 @@ import (
 	"iptv/internal/playlist"
 	"iptv/internal/runlock"
 	"iptv/internal/source"
+	"iptv/internal/stbpower"
 )
 
 type Report struct {
@@ -75,9 +76,20 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	}
 	if !settings.SkipCapture {
 		logger.Printf("[1/3] capturing STB credentials on %s", settings.Interface)
+		var onCaptureReady func(context.Context) error
+		if settings.STBPowerWebhookURL != "" {
+			onCaptureReady = func(ctx context.Context) error {
+				logger.Printf("capture listener ready; requesting STB power-on through Home Assistant")
+				err := (stbpower.Webhook{URL: settings.STBPowerWebhookURL, Timeout: settings.STBPowerWebhookTimeout}).Trigger(ctx)
+				if err == nil {
+					logger.Printf("Home Assistant accepted the STB power-on webhook")
+				}
+				return err
+			}
+		}
 		captured, err := capture.Run(ctx, capture.Options{
 			Interface: settings.Interface, Timeout: settings.CaptureTimeout, OutputPath: settings.CredsFile,
-			DumpPath: settings.CaptureDump, TokenHost: settings.TokenHost, Fallback: creds,
+			DumpPath: settings.CaptureDump, TokenHost: settings.TokenHost, Fallback: creds, OnReady: onCaptureReady,
 		})
 		if err != nil {
 			if len(creds) == 0 {

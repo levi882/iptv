@@ -175,6 +175,7 @@ func serveCommand(args []string) error {
 	set, repo, envPath, credsPath, iface := commonFlags("serve")
 	providerIface := set.String("provider-iface", "auto", "provider HTTP interface: auto, none, or a device name")
 	logMaxSize := set.String("log-max-size", loglimit.DefaultSize, "maximum LuCI application log size, for example 1M")
+	haWebhookTimeout := set.Int("ha-webhook-timeout", 10, "HA STB power-on webhook timeout in seconds")
 	host := set.String("host", "127.0.0.1", "listen host")
 	port := set.Int("port", defaultServicePort, "listen port")
 	token := set.String("token", "", "required API token")
@@ -199,6 +200,11 @@ func serveCommand(args []string) error {
 		return err
 	}
 	applyProviderInterfaceOverride(&settings, *providerIface)
+	settings.STBPowerWebhookURL = strings.TrimSpace(os.Getenv("IPTV_REFRESH_HA_WEBHOOK_URL"))
+	if *haWebhookTimeout <= 0 || *haWebhookTimeout > 60 {
+		return fmt.Errorf("ha-webhook-timeout must be between 1 and 60 seconds")
+	}
+	settings.STBPowerWebhookTimeout = time.Duration(*haWebhookTimeout) * time.Second
 	logMaxBytes, err := loglimit.ParseSize(*logMaxSize)
 	if err != nil {
 		return fmt.Errorf("invalid log-max-size %q: %w", *logMaxSize, err)

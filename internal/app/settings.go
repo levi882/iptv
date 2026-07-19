@@ -15,11 +15,13 @@ type Settings struct {
 	CredsFile string
 	Interface string
 
-	CaptureTimeout time.Duration
-	RefreshTimeout time.Duration
-	CaptureDump    string
-	TokenHost      string
-	SkipCapture    bool
+	CaptureTimeout         time.Duration
+	RefreshTimeout         time.Duration
+	CaptureDump            string
+	TokenHost              string
+	SkipCapture            bool
+	STBPowerWebhookURL     string
+	STBPowerWebhookTimeout time.Duration
 
 	OutputPath         string
 	SnapshotOutputPath string

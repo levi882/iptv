@@ -19,6 +19,7 @@ return view.extend({
 		s.tab('general', _('General'));
 		s.tab('paths', _('Paths'));
 		s.tab('access', _('Access control'));
+		s.tab('automation', _('STB automation'));
 
 		var o = s.taboption('general', form.Flag, 'enabled', _('Enable service'));
 		o.default = '1';
@@ -81,6 +82,22 @@ return view.extend({
 		o.value('10.1.1.0/24');
 		o.rmempty = false;
 		o.depends('nginx_proxy', '1');
+
+		o = s.taboption('automation', form.Flag, 'stb_power_enabled', _('Power on STB through Home Assistant'), _('During credential recapture, start packet capture first and then call the configured Home Assistant webhook. Normal saved-credential refreshes never call it.'));
+		o.default = '0';
+		o.rmempty = false;
+
+		o = s.taboption('automation', form.Value, 'ha_webhook_url', _('Home Assistant webhook URL'), _('Use a local-only Home Assistant webhook such as http://10.1.1.2:8123/api/webhook/your-random-id. The URL is treated as a secret and is not placed on the service command line.'));
+		o.password = true;
+		o.placeholder = 'http://10.1.1.2:8123/api/webhook/...';
+		o.rmempty = true;
+		o.depends('stb_power_enabled', '1');
+
+		o = s.taboption('automation', form.Value, 'ha_webhook_timeout', _('Home Assistant webhook timeout'), _('Seconds to wait for Home Assistant to accept the power-on request.'));
+		o.default = '10';
+		o.datatype = 'and(uinteger,min(1),max(60))';
+		o.rmempty = false;
+		o.depends('stb_power_enabled', '1');
 
 		return m.render();
 	}
