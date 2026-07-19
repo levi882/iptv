@@ -70,6 +70,11 @@ never called for normal saved-credential refreshes. Treat the random webhook
 ID as a secret; it is passed to the service through a protected process
 environment rather than the command line.
 
+Provider portal responses declared as GBK, GB2312, or GB18030 are converted to
+UTF-8 before channel parsing and playlist generation. An undeclared non-UTF-8
+portal response uses GB18030 as a compatibility fallback. This keeps Chinese
+channel names valid and allows EPG and logo matching to use the real names.
+
 On OpenWrt, the package generates an nginx compatibility route for Home
 Assistant. The external `/iptv/refresh` route accepts the existing GET call,
 injects the router's current token, converts the request to a backend POST,

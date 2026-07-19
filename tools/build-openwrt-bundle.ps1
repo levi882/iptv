@@ -1,6 +1,6 @@
 param(
     [string]$GoExe = "",
-    [string]$Version = "0.1.0-r15"
+    [string]$Version = "0.1.0-r16"
 )
 
 $ErrorActionPreference = "Stop"

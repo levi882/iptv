@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=iptv-refresh
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=15
+PKG_RELEASE:=16
 PKG_LICENSE:=Proprietary
 
 PKG_BUILD_DEPENDS:=golang/host

@@ -5,15 +5,19 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"mime"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"iptv/internal/netbind"
 	"iptv/internal/redact"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 const DefaultUserAgent = "B700-V2A|Mozilla|5.0|ztebw(Chrome)|1.2.0;Resolution(PAL,720p,1080i) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.63 Safari/535.7"
@@ -126,11 +130,48 @@ func readResponse(resp *http.Response) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	data, err = decodeResponseBody(data, resp.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, err
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body := redact.Sensitive(strings.TrimSpace(string(data[:min(len(data), 300)])))
 		return nil, fmt.Errorf("HTTP %s: %s", resp.Status, body)
 	}
 	return data, nil
+}
+
+func decodeResponseBody(data []byte, contentType string) ([]byte, error) {
+	charset := ""
+	if _, parameters, err := mime.ParseMediaType(contentType); err == nil {
+		charset = strings.ToLower(strings.TrimSpace(parameters["charset"]))
+	}
+	var decoderName string
+	var decoded []byte
+	var err error
+	switch charset {
+	case "gbk", "gb2312", "gb_2312-80", "x-gbk", "cp936", "windows-936":
+		decoderName = "GBK"
+		decoded, err = simplifiedchinese.GBK.NewDecoder().Bytes(data)
+	case "gb18030":
+		decoderName = "GB18030"
+		decoded, err = simplifiedchinese.GB18030.NewDecoder().Bytes(data)
+	default:
+		if utf8.Valid(data) {
+			return data, nil
+		}
+		// Some provider nodes omit the charset even though their portal pages
+		// are GBK/GB18030. GB18030 is a superset and is safe for this fallback.
+		decoderName = "GB18030"
+		decoded, err = simplifiedchinese.GB18030.NewDecoder().Bytes(data)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("decode provider response as %s: %w", decoderName, err)
+	}
+	if !utf8.Valid(decoded) {
+		return nil, fmt.Errorf("decode provider response as %s: invalid UTF-8 result", decoderName)
+	}
+	return decoded, nil
 }
 
 func (c *Client) userToken(ctx context.Context, creds Credentials) (string, error) {

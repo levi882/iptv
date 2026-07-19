@@ -9,6 +9,11 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
+
+	"iptv/internal/playlist"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 func TestFetchFlow(t *testing.T) {
@@ -50,6 +55,61 @@ func TestFetchFlow(t *testing.T) {
 	want := []string{"/GetUserToken", "/iptvepg/function/index.jsp", "/iptvepg/function/funcportalauth.jsp", "/iptvepg/function/frameset_builder.jsp"}
 	if fmt.Sprint(steps) != fmt.Sprint(want) {
 		t.Fatalf("steps = %v, want %v", steps, want)
+	}
+}
+
+func TestFetchDecodesGBKChannelNames(t *testing.T) {
+	frameset := `jsSetConfig('Channel','ChannelName="湖北卫视" ChannelURL="igmp://239.1.1.1:1234"');`
+	gbkFrameset, err := simplifiedchinese.GBK.NewEncoder().Bytes([]byte(frameset))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/iptvepg/function/index.jsp", "/iptvepg/function/funcportalauth.jsp":
+			w.Header().Set("Content-Type", "text/html;charset=GBK")
+			fmt.Fprint(w, "ok")
+		case "/iptvepg/function/frameset_builder.jsp":
+			w.Header().Set("Content-Type", "text/html;charset=GBK")
+			_, _ = w.Write(gbkFrameset)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := New(Config{EPGEntry: server.URL, EASIP: "127.0.0.1", NetworkID: "1", Timeout: 3 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := client.Fetch(context.Background(), Credentials{UserID: "u", STBID: "s", STBInfo: "i", UserToken: "token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result.Frameset, "湖北卫视") || !utf8.ValidString(result.Frameset) {
+		t.Fatalf("frameset was not converted to UTF-8: %q", result.Frameset)
+	}
+	channels := playlist.ParseChannels(result.Frameset, playlist.URLSelectParams{Mode: "auto"}, "none", "超高清", "高清", "标清")
+	rows, _, _ := playlist.ChannelsToRows(channels)
+	logos := map[string]string{playlist.NormalizeName("湖北卫视"): "http://logo/hubei.png"}
+	if len(rows) != 1 || playlist.AttachLogos(rows, logos, .65) != 1 || rows[0].LogoURL == "" {
+		t.Fatalf("decoded channel did not recover logo matching: channels=%#v rows=%#v", channels, rows)
+	}
+}
+
+func TestDecodeResponseBodyFallsBackToGB18030(t *testing.T) {
+	raw, err := simplifiedchinese.GB18030.NewEncoder().Bytes([]byte("广东珠江频道"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := decodeResponseBody(raw, "text/html")
+	if err != nil || string(decoded) != "广东珠江频道" {
+		t.Fatalf("GB18030 fallback = %q, %v", decoded, err)
+	}
+	utf8Body := []byte("湖北卫视")
+	decoded, err = decodeResponseBody(utf8Body, "text/html; charset=utf-8")
+	if err != nil || string(decoded) != string(utf8Body) {
+		t.Fatalf("UTF-8 response changed: %q, %v", decoded, err)
 	}
 }
 
