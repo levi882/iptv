@@ -31,11 +31,40 @@ jobs:
     timeout-minutes: 90
 
     steps:
+      - name: Resolve source ref
+        id: source
+        shell: bash
+        env:
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag }}
+          EVENT_REF: ${{ github.ref }}
+        run: |
+          requested="${REQUESTED_RELEASE_TAG#release_tag=}"
+          requested="${requested#refs/tags/}"
+
+          if [ -n "$requested" ]; then
+            if [[ ! "$requested" =~ ^v[0-9A-Za-z._-]+$ ]]; then
+              echo "Invalid release tag '$REQUESTED_RELEASE_TAG'; expected a value such as v0.1.0-r21" >&2
+              exit 1
+            fi
+            source_ref="refs/tags/$requested"
+            release_tag="$requested"
+          else
+            source_ref="$EVENT_REF"
+            case "$EVENT_REF" in
+              refs/tags/v*) release_tag="${EVENT_REF#refs/tags/}" ;;
+              *) release_tag= ;;
+            esac
+          fi
+
+          echo "ref=$source_ref" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "Using source ref: $source_ref"
+
       - name: Check out source
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
-          ref: ${{ inputs.release_tag || github.ref }}
+          ref: ${{ steps.source.outputs.ref }}
 
       - name: Install SDK host dependencies
         run: |
@@ -128,11 +157,11 @@ jobs:
           retention-days: 14
 
       - name: Publish tag release
-        if: startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.release_tag, 'v')
+        if: steps.source.outputs.release_tag != ''
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          RELEASE_TAG: ${{ steps.source.outputs.release_tag }}
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" action-dist/* \
