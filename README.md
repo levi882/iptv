@@ -225,9 +225,9 @@ the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded
 installers to the router:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r19.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r19.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r19.apk `
+scp .\dist\iptv-refresh-0.1.0-r20.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r20.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r20.apk `
   .\dist\SHA256SUMS `
   .\tools\install-openwrt-apk.sh `
   .\tools\install-openwrt-luci-apk.sh root@router.lan:/tmp/
@@ -238,7 +238,9 @@ ssh root@router.lan "sh /tmp/install-openwrt-luci-apk.sh"
 The installer verifies the release, architecture, and SHA-256 before changing
 the router. APK conffile handling preserves the installed configuration on
 upgrades. It then enables the service and checks `/healthz`.
-Release r19 adds LuCI-managed scheduled credential capture and refresh. Release
+Release r20 fixes service startup on OpenWrt when the scheduler loads the UCI
+shell library with nounset checking enabled. Release r19 adds LuCI-managed
+scheduled credential capture and refresh. Release
 r18 copies legacy regional environment and credential files to the
 provider-neutral paths and updates UCI automatically; the original files stay
 in place as recovery copies.

@@ -1,6 +1,11 @@
 #!/bin/sh
 set -eu
 
+# OpenWrt's /lib/functions.sh reads this package-manager variable directly.
+# Runtime service calls do not define it, so initialize it before sourcing the
+# library while nounset mode is active.
+IPKG_INSTROOT="${IPKG_INSTROOT:-}"
+
 MARKER="# iptv-refresh scheduled capture"
 CRONTAB_FILE="${IPTV_REFRESH_CRONTAB_FILE:-/etc/crontabs/root}"
 SCHEDULER_PATH="${IPTV_REFRESH_SCHEDULER_PATH:-/usr/libexec/iptv-refresh-scheduler}"

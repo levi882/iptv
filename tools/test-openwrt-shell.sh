@@ -21,7 +21,8 @@ grep -q -- '--provider-iface "$provider_iface"' "$ROOT/openwrt/files/iptv-refres
 grep -q -- '--log-max-size "$log_max_size"' "$ROOT/openwrt/files/iptv-refresh.init"
 grep -q -- '--ha-webhook-timeout "$ha_webhook_timeout"' "$ROOT/openwrt/files/iptv-refresh.init"
 grep -q -- 'IPTV_REFRESH_HA_WEBHOOK_URL="$ha_webhook_url"' "$ROOT/openwrt/files/iptv-refresh.init"
-grep -q -- 'iptv-refresh-scheduler sync' "$ROOT/openwrt/files/iptv-refresh.init"
+grep -q -- 'refresh_schedule' "$ROOT/openwrt/files/iptv-refresh.init"
+grep -Fq -- 'scheduler sync failed:' "$ROOT/openwrt/files/iptv-refresh.init"
 grep -Fq -- 'cp "$ROOT/go.mod" "$ROOT/go.sum" "$PACKAGE_DIR/src/"' "$ROOT/tools/build-openwrt-package.sh"
 grep -Fq -- 'cp "$ROOT/LICENSE" "$PACKAGE_DIR/src/LICENSE"' "$ROOT/tools/build-openwrt-package.sh"
 grep -Fq -- 'cp "$ROOT/LICENSE" "$LUCI_PACKAGE_DIR/LICENSE"' "$ROOT/tools/build-openwrt-package.sh"
@@ -38,6 +39,7 @@ grep -q -- "option capture_schedule_enabled '0'" "$ROOT/openwrt/files/iptv-refre
 grep -q -- "option capture_schedule '30 7 \* \* \*'" "$ROOT/openwrt/files/iptv-refresh.uci"
 grep -q -- '^PROVIDER_TOKEN_SERVER=auto$' "$ROOT/openwrt/files/provider.env"
 grep -q -- 'IPKG_INSTROOT="${IPKG_INSTROOT:-}"' "$ROOT/openwrt/files/iptv-refresh-nginx-config"
+grep -q -- 'IPKG_INSTROOT="${IPKG_INSTROOT:-}"' "$ROOT/openwrt/files/iptv-refresh-scheduler"
 grep -q -- '^DEFAULT_ALLOW=127\.0\.0\.1$' "$ROOT/openwrt/files/iptv-refresh-nginx-config"
 grep -q -- 'clear-log)' "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
 grep -q -- 'set-log-max-size)' "$ROOT/luci-app-iptv-refresh/root/usr/libexec/iptv-refresh-luci-action"
@@ -60,6 +62,7 @@ fi
 
 functions_fixture="$TEST_DIR/functions.sh"
 printf '%s\n' \
+	': "$IPKG_INSTROOT"' \
 	'config_load() { :; }' \
 	'config_get_bool() {' \
 	' case "$1" in' \
@@ -81,6 +84,7 @@ export IPTV_REFRESH_SCHEDULER_PATH=/usr/libexec/iptv-refresh-scheduler
 export TEST_SERVICE_ENABLED=1
 export TEST_SCHEDULE_ENABLED=1
 export TEST_SCHEDULE_EXPRESSION='30 7 * * *'
+unset IPKG_INSTROOT
 sh "$scheduler" sync
 grep -Fq '5 6 * * * /usr/bin/example' "$cron_fixture"
 grep -Fq '30 7 * * * /usr/libexec/iptv-refresh-scheduler run >/dev/null 2>&1 # iptv-refresh scheduled capture' "$cron_fixture"

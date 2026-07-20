@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-PACKAGE=${1:-/tmp/iptv-refresh-0.1.0-r19.apk}
+PACKAGE=${1:-/tmp/iptv-refresh-0.1.0-r20.apk}
 MODE=${2:-}
 EXPECTED_RELEASE=25.12.5
 EXPECTED_ARCH=x86_64
