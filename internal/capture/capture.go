@@ -3,16 +3,14 @@ package capture
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/url"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
 	"time"
 
+	"iptv/internal/atomicfile"
 	"iptv/internal/config"
 )
 
@@ -38,6 +36,7 @@ type safeBuffer struct {
 	data      []byte
 	start     int
 	size      int
+	written   uint64
 	truncated bool
 }
 
@@ -49,6 +48,7 @@ func (b *safeBuffer) Write(p []byte) (int, error) {
 	b.Lock()
 	defer b.Unlock()
 	written := len(p)
+	b.written += uint64(written)
 	if len(b.data) == 0 || written == 0 {
 		return written, nil
 	}
@@ -86,6 +86,14 @@ func (b *safeBuffer) Truncated() bool {
 	b.Lock()
 	defer b.Unlock()
 	return b.truncated
+}
+
+// TotalWritten counts every byte ever written, including data that has
+// rotated out of the ring, so pollers can cheaply detect new traffic.
+func (b *safeBuffer) TotalWritten() uint64 {
+	b.Lock()
+	defer b.Unlock()
+	return b.written
 }
 
 var patterns = map[string]*regexp.Regexp{
@@ -196,27 +204,9 @@ func Save(path string, env config.Env) error {
 	for _, key := range keys {
 		fmt.Fprintf(&b, "%s=%s\n", key, env[key])
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".creds-*")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
-	if err := tmp.Chmod(0o600); err != nil {
-		tmp.Close()
-		return err
-	}
-	if _, err := io.WriteString(tmp, b.String()); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpName, path)
+	// Captured credentials need a cold STB boot to recover, so they must
+	// survive a router power cut; atomicfile fsyncs before the rename.
+	return atomicfile.Write(path, []byte(b.String()), 0o600)
 }
 
 func Run(ctx context.Context, opts Options) (config.Env, error) {
@@ -281,11 +271,17 @@ func Run(ctx context.Context, opts Options) (config.Env, error) {
 	}
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
+	var parsedAt uint64
 	for {
 		select {
 		case <-ticker.C:
-			if capturedEnough(output.BytesCopy(), opts.TokenHost) {
-				cancel()
+			// Re-running ~15 regexes over a 4 MiB ring every tick is wasteful
+			// on router CPUs; skip when tcpdump produced no new bytes.
+			if total := output.TotalWritten(); total > parsedAt {
+				parsedAt = total
+				if capturedEnough(output.BytesCopy(), opts.TokenHost) {
+					cancel()
+				}
 			}
 		case <-ctx.Done():
 			select {
@@ -312,10 +308,7 @@ func Run(ctx context.Context, opts Options) (config.Env, error) {
 
 func finish(raw []byte, truncated bool, opts Options) (config.Env, error) {
 	if opts.DumpPath != "" {
-		if err := os.MkdirAll(filepath.Dir(opts.DumpPath), 0o755); err != nil {
-			return nil, fmt.Errorf("create capture dump directory: %w", err)
-		}
-		if err := os.WriteFile(opts.DumpPath, raw, 0o600); err != nil {
+		if err := atomicfile.Write(opts.DumpPath, raw, 0o600); err != nil {
 			return nil, fmt.Errorf("write capture dump: %w", err)
 		}
 	}

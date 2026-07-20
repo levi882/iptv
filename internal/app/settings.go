@@ -97,12 +97,11 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 	if envPath == "" {
 		envPath = "/etc/iptv-refresh/provider.env"
 	}
-	env := config.Env{}
-	if loaded, err := config.Load(envPath); err == nil {
-		env = loaded.NormalizeProviderKeys()
-	} else {
+	loaded, err := config.Load(envPath)
+	if err != nil {
 		return Settings{}, nil, fmt.Errorf("load config %s: %w", envPath, err)
 	}
+	env := loaded.NormalizeProviderKeys()
 	keepUnmatched := env.String("KEEP_UNMATCHED", "append")
 	if keepUnmatched != "append" && keepUnmatched != "drop" {
 		return Settings{}, nil, fmt.Errorf("KEEP_UNMATCHED must be append or drop")

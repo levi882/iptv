@@ -114,6 +114,49 @@ func TestFailedRunRedactsStatusError(t *testing.T) {
 	}
 }
 
+func TestShutdownCancelsAndDrainsRunningRefresh(t *testing.T) {
+	started := make(chan struct{})
+	manager := NewManager(app.Runner{}, app.Settings{})
+	manager.run = func(ctx context.Context, _ app.Settings) (app.Report, error) {
+		close(started)
+		<-ctx.Done()
+		return app.Report{}, ctx.Err()
+	}
+	if err := manager.Trigger(""); err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := manager.Shutdown(ctx); err != nil {
+		t.Fatalf("shutdown did not drain refresh: %v", err)
+	}
+	if manager.Status().Running {
+		t.Fatal("refresh still marked running after shutdown")
+	}
+}
+
+func TestShutdownReportsStuckRefresh(t *testing.T) {
+	release := make(chan struct{})
+	started := make(chan struct{})
+	manager := NewManager(app.Runner{}, app.Settings{})
+	manager.run = func(context.Context, app.Settings) (app.Report, error) {
+		close(started)
+		<-release
+		return app.Report{}, nil
+	}
+	if err := manager.Trigger(""); err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if err := manager.Shutdown(ctx); err == nil {
+		t.Fatal("shutdown succeeded despite a refresh ignoring cancellation")
+	}
+	close(release)
+}
+
 func waitForManager(t *testing.T, manager *Manager) {
 	t.Helper()
 	deadline := time.Now().Add(time.Second)

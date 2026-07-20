@@ -2,6 +2,7 @@ package portal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -61,6 +62,24 @@ type Client struct {
 type portalSession struct {
 	Host    string
 	Referer string
+}
+
+type responseError struct {
+	statusCode int
+	status     string
+	body       string
+}
+
+func (e *responseError) Error() string {
+	return fmt.Sprintf("HTTP %s: %s", e.status, e.body)
+}
+
+type providerAuthError struct {
+	code string
+}
+
+func (e *providerAuthError) Error() string {
+	return "provider rejected authentication, errcode=" + e.code
 }
 
 var (
@@ -136,9 +155,30 @@ func readResponse(resp *http.Response) ([]byte, error) {
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		body := redact.Sensitive(strings.TrimSpace(string(data[:min(len(data), 300)])))
-		return nil, fmt.Errorf("HTTP %s: %s", resp.Status, body)
+		return nil, &responseError{statusCode: resp.StatusCode, status: resp.Status, body: body}
 	}
 	return data, nil
+}
+
+func authenticationError(data []byte) error {
+	match := errCodeRE.FindSubmatch(data)
+	if len(match) < 2 {
+		return nil
+	}
+	code := strings.TrimSpace(string(match[1]))
+	if code != "401" && code != "403" {
+		return nil
+	}
+	return &providerAuthError{code: code}
+}
+
+func isAuthenticationError(err error) bool {
+	var responseErr *responseError
+	if errors.As(err, &responseErr) && (responseErr.statusCode == http.StatusUnauthorized || responseErr.statusCode == http.StatusForbidden) {
+		return true
+	}
+	var providerErr *providerAuthError
+	return errors.As(err, &providerErr)
 }
 
 func decodeResponseBody(data []byte, contentType string) ([]byte, error) {
@@ -272,6 +312,9 @@ func (c *Client) initSession(ctx context.Context, entry, token string, creds Cre
 		if err != nil {
 			return portalSession{}, err
 		}
+		if err := authenticationError(data); err != nil {
+			return portalSession{}, err
+		}
 		host, err := origin(finalURL)
 		if err != nil {
 			return portalSession{}, err
@@ -308,8 +351,11 @@ func (c *Client) portalAuth(ctx context.Context, session portalSession, token st
 	if err != nil {
 		return err
 	}
-	_, err = readResponse(resp)
-	return err
+	data, err := readResponse(resp)
+	if err != nil {
+		return err
+	}
+	return authenticationError(data)
 }
 
 func (c *Client) frameset(ctx context.Context, host string) (string, error) {
@@ -323,7 +369,13 @@ func (c *Client) frameset(ctx context.Context, host string) (string, error) {
 		return "", err
 	}
 	data, err := readResponse(resp)
-	return string(data), err
+	if err != nil {
+		return "", err
+	}
+	if err := authenticationError(data); err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func uniqueEntries(primary string, fallbacks []string) []string {
@@ -344,9 +396,10 @@ func (c *Client) Fetch(ctx context.Context, creds Credentials) (Result, error) {
 		return Result{}, fmt.Errorf("UserID, STBID and STBInfo are required")
 	}
 	token := strings.TrimSpace(creds.UserToken)
+	usedSavedToken := token != ""
 	if token == "" {
 		if creds.Authenticator == "" {
-			return Result{}, fmt.Errorf("Authenticator is required when UserToken is empty")
+			return Result{}, fmt.Errorf("an Authenticator is required when UserToken is empty")
 		}
 		var err error
 		token, err = c.userToken(ctx, creds)
@@ -354,10 +407,30 @@ func (c *Client) Fetch(ctx context.Context, creds Credentials) (Result, error) {
 			return Result{}, fmt.Errorf("get user token: %w", err)
 		}
 	}
+	result, authenticationFailed, err := c.fetchWithToken(ctx, token, creds)
+	if err == nil || !authenticationFailed || !usedSavedToken || creds.Authenticator == "" || ctx.Err() != nil {
+		return result, err
+	}
+	// A saved UserToken can simply have expired. The Authenticator is often
+	// single-use and may already be consumed, but one GetUserToken attempt is
+	// cheap compared to forcing a full STB recapture.
+	fresh, tokenErr := c.userToken(ctx, creds)
+	if tokenErr != nil || fresh == token {
+		return Result{}, err
+	}
+	result, _, retryErr := c.fetchWithToken(ctx, fresh, creds)
+	if retryErr != nil {
+		return Result{}, fmt.Errorf("%w (retry with refreshed token also failed: %s)", err, redact.Sensitive(retryErr.Error()))
+	}
+	return result, nil
+}
+
+func (c *Client) fetchWithToken(ctx context.Context, token string, creds Credentials) (Result, bool, error) {
 	var lastErr error
+	authenticationFailed := false
 	for _, entry := range uniqueEntries(c.config.EPGEntry, c.config.EPGFallbacks) {
 		if err := c.resetCookies(); err != nil {
-			return Result{}, err
+			return Result{}, false, err
 		}
 		session, err := c.initSession(ctx, entry, token, creds)
 		stage := "initialize session"
@@ -370,10 +443,11 @@ func (c *Client) Fetch(ctx context.Context, creds Credentials) (Result, error) {
 			var frameset string
 			frameset, err = c.frameset(ctx, session.Host)
 			if err == nil {
-				return Result{Frameset: frameset, EPGHost: session.Host, Token: token}, nil
+				return Result{Frameset: frameset, EPGHost: session.Host, Token: token}, false, nil
 			}
 		}
+		authenticationFailed = authenticationFailed || isAuthenticationError(err)
 		lastErr = fmt.Errorf("EPG entry %s: %s: %s", redact.Sensitive(entry), stage, redact.Sensitive(err.Error()))
 	}
-	return Result{}, fmt.Errorf("all EPG entries failed: %w", lastErr)
+	return Result{}, authenticationFailed, fmt.Errorf("all EPG entries failed: %w", lastErr)
 }

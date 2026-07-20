@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"iptv/internal/atomicfile"
 	"iptv/internal/capture"
 	"iptv/internal/config"
 	"iptv/internal/logocache"
@@ -138,13 +139,13 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 		logger.Printf("EPG: downloading %s", settings.EPGURL)
 		if raw, err := reader.Read(ctx, settings.EPGURL); err != nil {
 			logger.Printf("WARNING: EPG download failed: %v", err)
-		} else if err := atomicWrite(settings.EPGFile, raw, 0o644); err != nil {
+		} else if _, err := atomicfile.WriteIfChanged(settings.EPGFile, raw, 0o644); err != nil {
 			logger.Printf("WARNING: EPG write failed: %v", err)
 		}
 	}
 	if settings.EPGFile != "" && settings.EPGPublicFile != "" {
 		if raw, err := os.ReadFile(settings.EPGFile); err == nil {
-			if err := atomicWrite(settings.EPGPublicFile, raw, 0o644); err != nil {
+			if _, err := atomicfile.WriteIfChanged(settings.EPGPublicFile, raw, 0o644); err != nil {
 				logger.Printf("WARNING: EPG publish failed: %v", err)
 			}
 		}
@@ -203,7 +204,7 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	if err := atomicWrite(settings.SnapshotPath, []byte(fetched.Frameset), 0o600); err != nil {
+	if err := atomicfile.Write(settings.SnapshotPath, []byte(fetched.Frameset), 0o600); err != nil {
 		return Report{}, err
 	}
 	channels := playlist.ParseChannels(fetched.Frameset, playlist.URLSelectParams{
@@ -329,39 +330,14 @@ func writePlaylist(path, format string, rows []playlist.Row, options playlist.Re
 			format = "txt"
 		}
 	}
-	text := playlist.RenderTXT(rows)
+	var text string
 	if format == "m3u" {
 		text = playlist.RenderM3U(rows, options)
+	} else {
+		text = playlist.RenderTXT(rows)
 	}
-	return atomicWrite(path, []byte(text), 0o644)
-}
-
-func atomicWrite(path string, data []byte, mode os.FileMode) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".iptv-*")
-	if err != nil {
-		return err
-	}
-	name := tmp.Name()
-	defer os.Remove(name)
-	if err := tmp.Chmod(mode); err != nil {
-		tmp.Close()
-		return err
-	}
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(name, path)
+	_, err := atomicfile.WriteIfChanged(path, []byte(text), 0o644)
+	return err
 }
 
 func interfaceIPv4(name string) (string, error) {

@@ -14,8 +14,10 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
+	"iptv/internal/atomicfile"
 	"iptv/internal/playlist"
 )
 
@@ -28,6 +30,15 @@ type Result struct {
 var logoRE = regexp.MustCompile(`(?i)tvg-logo="([^"]*)"`)
 
 var knownExtensions = map[string]bool{".png": true, ".jpg": true, ".jpeg": true, ".webp": true, ".gif": true, ".svg": true}
+
+// maxLogoBytes bounds a single logo download; channel logos are small images
+// and anything larger indicates a misbehaving or hostile server.
+const maxLogoBytes = 8 << 20
+
+// downloadWorkers bounds concurrent logo downloads. The first refresh with an
+// empty cache fetches hundreds of logos; serial downloads dominate refresh
+// time while still leaving the router CPU mostly idle.
+const downloadWorkers = 4
 
 func hashURL(value string) string {
 	sum := sha1.Sum([]byte(value))
@@ -60,14 +71,20 @@ func download(ctx context.Context, client *http.Client, value, directory, userAg
 			lastErr = err
 			continue
 		}
-		data, readErr := io.ReadAll(resp.Body)
+		data, readErr := io.ReadAll(io.LimitReader(resp.Body, maxLogoBytes+1))
 		resp.Body.Close()
 		if readErr != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 || len(data) == 0 {
 			lastErr = fmt.Errorf("download %s: HTTP %s: %v", candidate, resp.Status, readErr)
 			continue
 		}
+		if len(data) > maxLogoBytes {
+			lastErr = fmt.Errorf("download %s: logo exceeds %d MiB limit", candidate, maxLogoBytes>>20)
+			continue
+		}
 		filename := hashURL(value) + extension(value, resp.Header.Get("Content-Type"))
-		if err := os.WriteFile(filepath.Join(directory, filename), data, 0o644); err != nil {
+		// A partially written logo would be reused forever by the hash glob
+		// below, so the file must appear atomically or not at all.
+		if err := atomicfile.Write(filepath.Join(directory, filename), data, 0o644); err != nil {
 			return "", err
 		}
 		return filename, nil
@@ -103,25 +120,39 @@ func Rewrite(ctx context.Context, playlistPath, directory, publicBase string, ti
 	mapping := map[string]string{}
 	client := &http.Client{Timeout: timeout}
 	publicBase = strings.TrimRight(publicBase, "/")
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	slots := make(chan struct{}, downloadWorkers)
 	for _, value := range urls {
 		if (!strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://")) || strings.HasPrefix(value, publicBase+"/") {
 			continue
 		}
 		matches, _ := filepath.Glob(filepath.Join(directory, hashURL(value)+".*"))
-		filename := ""
 		if len(matches) > 0 {
-			filename = filepath.Base(matches[0])
+			// Earlier download goroutines may still be writing result/mapping.
+			mu.Lock()
 			result.Reused++
-		} else {
-			filename, err = download(ctx, client, value, directory, userAgent)
+			mapping[value] = publicBase + "/" + filepath.Base(matches[0])
+			mu.Unlock()
+			continue
+		}
+		wg.Add(1)
+		slots <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-slots }()
+			filename, err := download(ctx, client, value, directory, userAgent)
+			mu.Lock()
+			defer mu.Unlock()
 			if err != nil {
 				result.Failed++
-				continue
+				return
 			}
 			result.Downloaded++
-		}
-		mapping[value] = publicBase + "/" + filename
+			mapping[value] = publicBase + "/" + filename
+		}()
 	}
+	wg.Wait()
 	if len(mapping) > 0 {
 		raw = logoRE.ReplaceAllFunc(raw, func(match []byte) []byte {
 			parts := logoRE.FindSubmatch(match)
@@ -131,7 +162,9 @@ func Rewrite(ctx context.Context, playlistPath, directory, publicBase string, ti
 			}
 			return match
 		})
-		if err := os.WriteFile(playlistPath, raw, 0o644); err != nil {
+		// nginx and the /playlist route read this file concurrently; replace
+		// it atomically so they never serve a half-rewritten playlist.
+		if err := atomicfile.Write(playlistPath, raw, 0o644); err != nil {
 			return result, err
 		}
 	}

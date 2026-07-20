@@ -243,8 +243,13 @@ func serveCommand(args []string) error {
 	}()
 	logger.Printf("listening on http://%s", address)
 	err = httpServer.ListenAndServe()
-	if errors.Is(err, http.ErrServerClosed) {
-		return nil
+	if !errors.Is(err, http.ErrServerClosed) {
+		return err
 	}
-	return err
+	drainCtx, cancelDrain := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancelDrain()
+	if err := manager.Shutdown(drainCtx); err != nil {
+		logger.Printf("WARNING: refresh still running at shutdown: %v", err)
+	}
+	return nil
 }

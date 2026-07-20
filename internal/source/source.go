@@ -11,7 +11,13 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"iptv/internal/atomicfile"
 )
+
+// maxSourceBytes bounds downloaded EPG, logo, and reference sources so a
+// misbehaving server cannot exhaust router memory.
+const maxSourceBytes = 64 << 20
 
 type Reader struct {
 	Client    *http.Client
@@ -57,14 +63,15 @@ func (r Reader) Read(ctx context.Context, source string) ([]byte, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("GET %s: HTTP %s", source, resp.Status)
 	}
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxSourceBytes+1))
 	if err != nil {
 		return nil, err
 	}
+	if len(data) > maxSourceBytes {
+		return nil, fmt.Errorf("GET %s: response exceeds %d MiB limit", source, maxSourceBytes>>20)
+	}
 	if r.UseCache && cachePath != "" {
-		if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err == nil {
-			_ = atomicWrite(cachePath, data, 0o644)
-		}
+		_ = atomicfile.Write(cachePath, data, 0o644)
 	}
 	return data, nil
 }
@@ -94,29 +101,4 @@ func readFresh(path string, ttl time.Duration) ([]byte, bool) {
 	}
 	data, err := os.ReadFile(path)
 	return data, err == nil
-}
-
-func atomicWrite(path string, data []byte, mode os.FileMode) error {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".iptv-*")
-	if err != nil {
-		return err
-	}
-	tmpName := tmp.Name()
-	defer os.Remove(tmpName)
-	if err := tmp.Chmod(mode); err != nil {
-		tmp.Close()
-		return err
-	}
-	if _, err := tmp.Write(data); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Sync(); err != nil {
-		tmp.Close()
-		return err
-	}
-	if err := tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmpName, path)
 }

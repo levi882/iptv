@@ -32,10 +32,14 @@ type Manager struct {
 	status   Status
 	run      func(context.Context, app.Settings) (app.Report, error)
 	settings app.Settings
+	ctx      context.Context
+	cancel   context.CancelFunc
+	inflight sync.WaitGroup
 }
 
 func NewManager(runner app.Runner, settings app.Settings) *Manager {
-	return &Manager{run: runner.Run, settings: settings}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Manager{run: runner.Run, settings: settings, ctx: ctx, cancel: cancel}
 }
 
 func (m *Manager) Trigger(interfaceName string) error {
@@ -67,9 +71,11 @@ func (m *Manager) TriggerWithOptions(options TriggerOptions) error {
 	status.FinishedAt = time.Time{}
 	status.LastError = ""
 	m.status = status
+	m.inflight.Add(1)
 	m.mu.Unlock()
 	go func() {
-		report, err := m.run(context.Background(), settings)
+		defer m.inflight.Done()
+		report, err := m.run(m.ctx, settings)
 		m.mu.Lock()
 		defer m.mu.Unlock()
 		m.status.Running = false
@@ -81,6 +87,24 @@ func (m *Manager) TriggerWithOptions(options TriggerOptions) error {
 		m.status.Report = &report
 	}()
 	return nil
+}
+
+// Shutdown cancels the context handed to running refreshes and waits for them
+// to return, or gives up when ctx expires. Atomic output writes limit the
+// damage of a kill, but a drained refresh never leaves work half-applied.
+func (m *Manager) Shutdown(ctx context.Context) error {
+	m.cancel()
+	done := make(chan struct{})
+	go func() {
+		m.inflight.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (m *Manager) Status() Status {

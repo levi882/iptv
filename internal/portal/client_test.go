@@ -18,8 +18,7 @@ import (
 
 func TestFetchFlow(t *testing.T) {
 	steps := []string{}
-	var server *httptest.Server
-	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		steps = append(steps, r.URL.Path)
 		switch r.URL.Path {
 		case "/GetUserToken":
@@ -204,6 +203,106 @@ func TestFetchFollowsLoadBalancedSessionBeforePortalAuth(t *testing.T) {
 	}
 	if fmt.Sprint(steps) != fmt.Sprint(want) {
 		t.Fatalf("steps = %v, want %v", steps, want)
+	}
+}
+
+func TestFetchRefreshesExpiredSavedToken(t *testing.T) {
+	tokenCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/GetUserToken":
+			tokenCalls++
+			fmt.Fprint(w, "UserToken=fresh-token")
+		case "/iptvepg/function/index.jsp":
+			fmt.Fprint(w, "ok")
+		case "/iptvepg/function/funcportalauth.jsp":
+			if err := r.ParseForm(); err != nil || r.Form.Get("UserToken") != "fresh-token" {
+				fmt.Fprint(w, "errcode = 401")
+				return
+			}
+			fmt.Fprint(w, "ok")
+		case "/iptvepg/function/frameset_builder.jsp":
+			fmt.Fprint(w, `jsSetConfig('Channel','ChannelName="One"');`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client, err := New(Config{TokenServer: server.URL, PlatformOrigin: server.URL, EPGEntry: server.URL, EASIP: "127.0.0.1", NetworkID: "1", Timeout: 3 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := client.Fetch(context.Background(), Credentials{UserID: "u", STBID: "s", Authenticator: "a", STBInfo: "i", UserToken: "expired-token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Token != "fresh-token" || tokenCalls != 1 {
+		t.Fatalf("token refresh fallback: result=%#v tokenCalls=%d", result, tokenCalls)
+	}
+}
+
+func TestFetchDoesNotRefreshSavedTokenAfterTransientFailure(t *testing.T) {
+	tokenCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/GetUserToken" {
+			tokenCalls++
+		}
+		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	client, err := New(Config{TokenServer: server.URL, PlatformOrigin: server.URL, EPGEntry: server.URL, EASIP: "127.0.0.1", NetworkID: "1", Timeout: 3 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Fetch(context.Background(), Credentials{UserID: "u", STBID: "s", Authenticator: "single-use", STBInfo: "i", UserToken: "saved-token"})
+	if err == nil {
+		t.Fatal("Fetch succeeded unexpectedly")
+	}
+	if tokenCalls != 0 {
+		t.Fatalf("GetUserToken was called %d times after a transient failure", tokenCalls)
+	}
+}
+
+func TestAuthenticationErrorClassification(t *testing.T) {
+	for _, err := range []error{
+		&responseError{statusCode: http.StatusUnauthorized},
+		&responseError{statusCode: http.StatusForbidden},
+		&providerAuthError{code: "401"},
+	} {
+		if !isAuthenticationError(err) {
+			t.Fatalf("authentication error was not classified: %T", err)
+		}
+	}
+	if isAuthenticationError(&responseError{statusCode: http.StatusServiceUnavailable}) {
+		t.Fatal("transient HTTP failure was classified as authentication failure")
+	}
+	if err := authenticationError([]byte("errcode=500")); err != nil {
+		t.Fatalf("non-auth provider error was classified as authentication failure: %v", err)
+	}
+}
+
+func TestFetchWithoutAuthenticatorDoesNotRetryExpiredToken(t *testing.T) {
+	tokenCalls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/GetUserToken" {
+			tokenCalls++
+		}
+		http.Error(w, "errcode = 401", http.StatusForbidden)
+	}))
+	defer server.Close()
+
+	client, err := New(Config{TokenServer: server.URL, PlatformOrigin: server.URL, EPGEntry: server.URL, EASIP: "127.0.0.1", NetworkID: "1", Timeout: 3 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Fetch(context.Background(), Credentials{UserID: "u", STBID: "s", STBInfo: "i", UserToken: "expired-token"})
+	if err == nil {
+		t.Fatal("Fetch succeeded unexpectedly")
+	}
+	if tokenCalls != 0 {
+		t.Fatalf("GetUserToken was called %d times without an Authenticator", tokenCalls)
 	}
 }
 

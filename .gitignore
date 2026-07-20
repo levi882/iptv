@@ -47,6 +47,7 @@ secrets.yaml
 /openwrt-sdk-*.tar.*
 
 # OS/editor noise
+.claude/
 .idea/
 .vscode/
 .DS_Store
