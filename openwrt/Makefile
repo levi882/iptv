@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=iptv-refresh
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=18
+PKG_RELEASE:=19
 PKG_LICENSE:=Apache-2.0
 PKG_LICENSE_FILES:=LICENSE
 
@@ -91,6 +91,15 @@ define Package/iptv-refresh/postrm
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT:-}" ] && exit 0
 [ -x /usr/bin/iptv-refresh ] && exit 0
+if [ -f /etc/crontabs/root ] && [ ! -L /etc/crontabs/root ]; then
+	cron_tmp="/etc/crontabs/root.iptv-refresh.$$$$"
+	awk 'index($$0, "# iptv-refresh scheduled capture") == 0 { print }' /etc/crontabs/root > "$${cron_tmp}"
+	chmod 600 "$${cron_tmp}"
+	mv -f "$${cron_tmp}" /etc/crontabs/root
+	if [ -x /etc/init.d/cron ] && /etc/init.d/cron running >/dev/null 2>&1; then
+		/etc/init.d/cron reload >/dev/null 2>&1 || /etc/init.d/cron restart >/dev/null 2>&1 || true
+	fi
+fi
 rm -f /etc/iptv-refresh/nginx.d/auth.conf /etc/nginx/conf.d/iptv-refresh.locations
 rmdir /etc/iptv-refresh/nginx.d 2>/dev/null || true
 for backup in /etc/nginx/conf.d/*.locations.iptv-refresh-legacy; do
@@ -117,6 +126,7 @@ define Package/iptv-refresh/install
 	$(INSTALL_BIN) ./files/iptv-refresh.init $(1)/etc/init.d/iptv-refresh
 	$(INSTALL_DIR) $(1)/usr/libexec
 	$(INSTALL_BIN) ./files/iptv-refresh-nginx-config $(1)/usr/libexec/iptv-refresh-nginx-config
+	$(INSTALL_BIN) ./files/iptv-refresh-scheduler $(1)/usr/libexec/iptv-refresh-scheduler
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_CONF) ./files/iptv-refresh.uci $(1)/etc/config/iptv-refresh
 	$(INSTALL_DIR) $(1)/etc/iptv-refresh

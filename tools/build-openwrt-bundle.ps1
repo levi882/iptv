@@ -1,6 +1,6 @@
 param(
     [string]$GoExe = "",
-    [string]$Version = "0.1.0-r18"
+    [string]$Version = "0.1.0-r19"
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,6 +53,7 @@ try {
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\install-bundle.sh") -Destination (Join-Path $stage "install.sh")
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh.init") -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh-nginx-config") -Destination $stage
+Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh-scheduler") -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\iptv-refresh.uci") -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root "openwrt\files\provider.env") -Destination $stage
 Copy-Item -LiteralPath (Join-Path $root "LICENSE") -Destination $stage

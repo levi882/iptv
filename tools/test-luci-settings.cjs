@@ -8,6 +8,8 @@ if (!sourcePath) {
 	process.exit(2);
 }
 
+const options = {};
+
 class Option {
 	value() {}
 	depends() {}
@@ -15,7 +17,11 @@ class Option {
 
 class Section {
 	tab() {}
-	taboption() { return new Option(); }
+	taboption(type, name) {
+		const option = new Option();
+		options[name] = option;
+		return option;
+	}
 }
 
 class Map {
@@ -45,6 +51,9 @@ if (!source.includes("'nginx_proxy'") || !source.includes("'nginx_allow_ip'")) {
 if (!source.includes("'stb_power_enabled'") || !source.includes("'ha_webhook_url'") || !source.includes("'ha_webhook_timeout'")) {
 	throw new Error('Home Assistant STB power-on settings are missing');
 }
+if (!source.includes("'capture_schedule_enabled'") || !source.includes("'capture_schedule'") || !source.includes("'30 7 * * *'")) {
+	throw new Error('Scheduled credential capture settings are missing');
+}
 if (!source.includes("o.value('127.0.0.1')")) {
 	throw new Error('Home Assistant compatibility proxy is not loopback-only by default');
 }
@@ -56,6 +65,11 @@ const app = loadView(view, form, uci, widgets, translate);
 
 Promise.resolve(app.load()).then(() => {
 	app.render();
+	if (!options.capture_schedule || options.capture_schedule.validate('main', '30 7 * * *') !== true)
+		throw new Error('Daily scheduled capture expression was rejected');
+	if (options.capture_schedule.validate('main', '60 7 * * *') === true ||
+		options.capture_schedule.validate('main', '30 7 * * *;reboot') === true)
+		throw new Error('Invalid scheduled capture expression was accepted');
 	console.log('LuCI settings render test passed');
 }).catch(error => {
 	console.error(error);

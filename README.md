@@ -206,6 +206,13 @@ The raw preview masks `R2H_TOKEN`.
 The LuCI browser code calls a narrowly permitted local helper; the API token is
 read by the Go process and is never returned to the browser.
 
+The **STB automation** settings can also schedule a credential capture followed
+by a complete channel and EPG refresh. It accepts a five-field numeric cron
+expression in the router's local time zone; `30 7 * * *` runs every day at
+07:30. The generated root crontab entry calls only the packaged scheduler
+helper. Enable the Home Assistant STB power-on webhook or arrange for the STB
+to be on when the capture begins.
+
 The overview log card reads only the application log under
 `REPO_ROOT/output/log/iptv_refresh.log`; it never clears OpenWrt's global
 `logd` buffer. Its UCI-backed size limit accepts a positive number with a KB
@@ -218,9 +225,9 @@ the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded
 installers to the router:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r18.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r18.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r18.apk `
+scp .\dist\iptv-refresh-0.1.0-r19.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r19.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r19.apk `
   .\dist\SHA256SUMS `
   .\tools\install-openwrt-apk.sh `
   .\tools\install-openwrt-luci-apk.sh root@router.lan:/tmp/
@@ -231,7 +238,8 @@ ssh root@router.lan "sh /tmp/install-openwrt-luci-apk.sh"
 The installer verifies the release, architecture, and SHA-256 before changing
 the router. APK conffile handling preserves the installed configuration on
 upgrades. It then enables the service and checks `/healthz`.
-Release r18 copies legacy regional environment and credential files to the
+Release r19 adds LuCI-managed scheduled credential capture and refresh. Release
+r18 copies legacy regional environment and credential files to the
 provider-neutral paths and updates UCI automatically; the original files stay
 in place as recovery copies.
 When upgrading from the previous default, an unchanged listen port of `9099`

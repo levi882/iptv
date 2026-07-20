@@ -1,0 +1,159 @@
+#!/bin/sh
+set -eu
+
+MARKER="# iptv-refresh scheduled capture"
+CRONTAB_FILE="${IPTV_REFRESH_CRONTAB_FILE:-/etc/crontabs/root}"
+SCHEDULER_PATH="${IPTV_REFRESH_SCHEDULER_PATH:-/usr/libexec/iptv-refresh-scheduler}"
+FUNCTIONS_FILE="${IPTV_REFRESH_FUNCTIONS_FILE:-/lib/functions.sh}"
+CRON_INIT="${IPTV_REFRESH_CRON_INIT:-/etc/init.d/cron}"
+
+validate_expression() {
+	awk -v expression="$1" '
+	function number_in_range(value, minimum, maximum) {
+		return value ~ /^[0-9]+$/ && value + 0 >= minimum && value + 0 <= maximum
+	}
+	function atom_is_valid(atom, minimum, maximum, slash, slash_count, base, dash, dash_count) {
+		slash_count = split(atom, slash, "/")
+		if (slash_count > 2 || (slash_count == 2 && (!number_in_range(slash[2], 1, 65535))))
+			return 0
+		base = slash[1]
+		if (base == "*")
+			return 1
+		dash_count = split(base, dash, "-")
+		if (dash_count == 1)
+			return number_in_range(dash[1], minimum, maximum)
+		if (dash_count == 2)
+			return number_in_range(dash[1], minimum, maximum) &&
+				number_in_range(dash[2], minimum, maximum) && dash[1] + 0 <= dash[2] + 0
+		return 0
+	}
+	function field_is_valid(field, minimum, maximum, list, count, item_index) {
+		count = split(field, list, ",")
+		if (count < 1)
+			return 0
+		for (item_index = 1; item_index <= count; item_index++)
+			if (!atom_is_valid(list[item_index], minimum, maximum))
+				return 0
+		return 1
+	}
+	BEGIN {
+		if (expression !~ /^[0-9*\/, -]+$/)
+			exit 1
+		gsub(/^ +| +$/, "", expression)
+		count = split(expression, fields, / +/)
+		if (count != 5 ||
+			!field_is_valid(fields[1], 0, 59) ||
+			!field_is_valid(fields[2], 0, 23) ||
+			!field_is_valid(fields[3], 1, 31) ||
+			!field_is_valid(fields[4], 1, 12) ||
+			!field_is_valid(fields[5], 0, 7))
+			exit 1
+	}
+	'
+}
+
+reload_cron() {
+	[ -x "$CRON_INIT" ] || return 0
+	if "$CRON_INIT" running >/dev/null 2>&1; then
+		"$CRON_INIT" reload >/dev/null 2>&1 || "$CRON_INIT" restart >/dev/null 2>&1
+	elif [ "$1" -eq 1 ]; then
+		"$CRON_INIT" start >/dev/null 2>&1
+	fi
+}
+
+sync_crontab() {
+	local service_enabled schedule_enabled schedule_expression cron_dir cron_tmp changed invalid_expression
+
+	. "$FUNCTIONS_FILE"
+	config_load iptv-refresh
+	config_get_bool service_enabled main enabled 1
+	config_get_bool schedule_enabled main capture_schedule_enabled 0
+	config_get schedule_expression main capture_schedule '30 7 * * *'
+	invalid_expression=0
+
+	if [ "$service_enabled" -ne 1 ]; then
+		schedule_enabled=0
+	fi
+	if [ "$schedule_enabled" -eq 1 ] && ! validate_expression "$schedule_expression"; then
+		logger -t iptv-refresh -p daemon.err "scheduled capture disabled: invalid cron expression" || true
+		schedule_enabled=0
+		invalid_expression=1
+	fi
+
+	[ ! -L "$CRONTAB_FILE" ] || {
+		echo "ERROR: refusing to update a symbolic-link crontab" >&2
+		return 1
+	}
+	cron_dir="${CRONTAB_FILE%/*}"
+	[ "$cron_dir" != "$CRONTAB_FILE" ] || cron_dir=.
+	mkdir -p "$cron_dir"
+	umask 077
+	cron_tmp="$(mktemp "${CRONTAB_FILE}.tmp.XXXXXX")"
+	trap 'rm -f "$cron_tmp"' EXIT HUP INT TERM
+
+	if [ -f "$CRONTAB_FILE" ]; then
+		awk -v marker="$MARKER" 'index($0, marker) == 0 { print }' "$CRONTAB_FILE" > "$cron_tmp"
+	fi
+	if [ "$schedule_enabled" -eq 1 ]; then
+		printf '%s %s run >/dev/null 2>&1 %s\n' "$schedule_expression" "$SCHEDULER_PATH" "$MARKER" >> "$cron_tmp"
+	fi
+
+	changed=1
+	if [ -f "$CRONTAB_FILE" ] && cmp -s "$CRONTAB_FILE" "$cron_tmp"; then
+		changed=0
+	elif [ ! -e "$CRONTAB_FILE" ] && [ ! -s "$cron_tmp" ]; then
+		changed=0
+	fi
+	if [ "$changed" -eq 1 ]; then
+		chmod 0600 "$cron_tmp"
+		mv -f "$cron_tmp" "$CRONTAB_FILE"
+		reload_cron "$schedule_enabled"
+	fi
+	trap - EXIT HUP INT TERM
+	rm -f "$cron_tmp"
+	[ "$invalid_expression" -eq 0 ]
+}
+
+run_capture() {
+	local service_enabled schedule_enabled listen_host listen_port token_file capture_iface output
+
+	. "$FUNCTIONS_FILE"
+	config_load iptv-refresh
+	config_get_bool service_enabled main enabled 1
+	config_get_bool schedule_enabled main capture_schedule_enabled 0
+	[ "$service_enabled" -eq 1 ] && [ "$schedule_enabled" -eq 1 ] || exit 0
+	config_get listen_host main listen_host 127.0.0.1
+	config_get listen_port main listen_port 9100
+	config_get token_file main token_file /etc/iptv-refresh/token
+	config_get capture_iface main iface any
+
+	if output="$(/usr/bin/iptv-refresh control refresh \
+		--host "$listen_host" \
+		--port "$listen_port" \
+		--token-file "$token_file" \
+		--iface "$capture_iface" \
+		--capture 2>&1)"; then
+		logger -t iptv-refresh "scheduled credential capture and refresh started"
+	else
+		logger -t iptv-refresh -p daemon.err "scheduled credential capture failed to start: $output"
+		return 1
+	fi
+}
+
+action="${1:-}"
+case "$action" in
+	validate)
+		[ "$#" -eq 2 ] || exit 2
+		validate_expression "$2"
+		;;
+	sync)
+		sync_crontab
+		;;
+	run)
+		run_capture
+		;;
+	*)
+		echo "Usage: $0 <sync|run|validate CRON_EXPRESSION>" >&2
+		exit 2
+		;;
+esac

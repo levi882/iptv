@@ -6,6 +6,42 @@
 
 var ENV_FILE = '/etc/iptv-refresh/provider.env';
 
+function validateCronExpression(value) {
+	var ranges = [ [ 0, 59 ], [ 0, 23 ], [ 1, 31 ], [ 1, 12 ], [ 0, 7 ] ];
+	var fields = value.trim().split(/ +/);
+
+	if (!/^[0-9*\/, -]+$/.test(value) || fields.length !== 5)
+		return _('Enter a five-field numeric cron expression.');
+
+	function numberInRange(number, range) {
+		return /^[0-9]+$/.test(number) && +number >= range[0] && +number <= range[1];
+	}
+
+	function atomIsValid(atom, range) {
+		var slash = atom.split('/');
+		var dash;
+
+		if (slash.length > 2 || (slash.length === 2 && (!numberInRange(slash[1], [ 1, 65535 ]))))
+			return false;
+		if (slash[0] === '*')
+			return true;
+		dash = slash[0].split('-');
+		if (dash.length === 1)
+			return numberInRange(dash[0], range);
+		return dash.length === 2 && numberInRange(dash[0], range) &&
+			numberInRange(dash[1], range) && +dash[0] <= +dash[1];
+	}
+
+	for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+		var atoms = fields[fieldIndex].split(',');
+		for (var atomIndex = 0; atomIndex < atoms.length; atomIndex++)
+			if (!atomIsValid(atoms[atomIndex], ranges[fieldIndex]))
+				return _('Cron expression contains a value outside its valid range.');
+	}
+
+	return true;
+}
+
 return view.extend({
 	load: function() {
 		return uci.load('iptv-refresh');
@@ -98,6 +134,19 @@ return view.extend({
 		o.datatype = 'and(uinteger,min(1),max(60))';
 		o.rmempty = false;
 		o.depends('stb_power_enabled', '1');
+
+		o = s.taboption('automation', form.Flag, 'capture_schedule_enabled', _('Scheduled credential capture and refresh'), _('Run credential capture followed by a full channel and EPG refresh on the router schedule. Enable the Home Assistant power-on webhook above or ensure the STB is powered on at that time.'));
+		o.default = '0';
+		o.rmempty = false;
+
+		o = s.taboption('automation', form.Value, 'capture_schedule', _('Cron expression'), _('Use five numeric fields: minute, hour, day of month, month, and day of week. The router local time zone is used. For example, 30 7 * * * runs every day at 07:30.'));
+		o.default = '30 7 * * *';
+		o.placeholder = '30 7 * * *';
+		o.rmempty = false;
+		o.depends('capture_schedule_enabled', '1');
+		o.validate = function(sectionId, value) {
+			return validateCronExpression(value);
+		};
 
 		return m.render();
 	}

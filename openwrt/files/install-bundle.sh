@@ -16,6 +16,10 @@ fi
 	echo "ERROR: nginx configuration helper is missing from $SELF_DIR" >&2
 	exit 1
 }
+[ -f "$SELF_DIR/iptv-refresh-scheduler" ] || {
+	echo "ERROR: scheduler helper is missing from $SELF_DIR" >&2
+	exit 1
+}
 
 was_running=0
 if [ -x /etc/init.d/iptv-refresh ] && /etc/init.d/iptv-refresh running >/dev/null 2>&1; then
@@ -35,6 +39,10 @@ mv -f /etc/init.d/.iptv-refresh.new /etc/init.d/iptv-refresh
 cp "$SELF_DIR/iptv-refresh-nginx-config" /usr/libexec/.iptv-refresh-nginx-config.new
 chmod 0755 /usr/libexec/.iptv-refresh-nginx-config.new
 mv -f /usr/libexec/.iptv-refresh-nginx-config.new /usr/libexec/iptv-refresh-nginx-config
+
+cp "$SELF_DIR/iptv-refresh-scheduler" /usr/libexec/.iptv-refresh-scheduler.new
+chmod 0755 /usr/libexec/.iptv-refresh-scheduler.new
+mv -f /usr/libexec/.iptv-refresh-scheduler.new /usr/libexec/iptv-refresh-scheduler
 
 if [ ! -e /etc/config/iptv-refresh ]; then
 	cp "$SELF_DIR/iptv-refresh.uci" /etc/config/iptv-refresh
@@ -96,6 +104,8 @@ chmod 0600 /etc/iptv-refresh/token
 
 if [ "$was_running" -eq 1 ]; then
 	/etc/init.d/iptv-refresh start
+else
+	/usr/libexec/iptv-refresh-scheduler sync
 fi
 
 echo "Installed $(/usr/bin/iptv-refresh version)"

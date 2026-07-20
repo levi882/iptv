@@ -63,6 +63,7 @@ start_service() {
 	local enabled repo_root env_file creds_file listen_host listen_port token_file iface provider_iface log_max_size stb_power_enabled ha_webhook_url ha_webhook_timeout token
 	config_load iptv-refresh
 	config_get_bool enabled main enabled 1
+	/usr/libexec/iptv-refresh-scheduler sync || return 1
 	[ "$enabled" -eq 1 ] || return 0
 	config_get repo_root main repo_root /mnt/iptv/iptv-refresh
 	config_get env_file main env_file /etc/iptv-refresh/provider.env
