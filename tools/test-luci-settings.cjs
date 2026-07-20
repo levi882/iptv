@@ -17,7 +17,7 @@ class Option {
 
 class Section {
 	tab() {}
-	taboption(type, name) {
+	taboption(tab, type, name) {
 		const option = new Option();
 		options[name] = option;
 		return option;
