@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -37,7 +38,9 @@ type Report struct {
 }
 
 type Runner struct {
-	Logger *log.Logger
+	Logger           *log.Logger
+	Capture          func(context.Context, capture.Options) (config.Env, error)
+	RestartRTP2HTTPD func(context.Context) error
 }
 
 func (r Runner) logger() *log.Logger {
@@ -45,6 +48,28 @@ func (r Runner) logger() *log.Logger {
 		return r.Logger
 	}
 	return log.Default()
+}
+
+func (r Runner) capture(ctx context.Context, options capture.Options) (config.Env, error) {
+	if r.Capture != nil {
+		return r.Capture(ctx, options)
+	}
+	return capture.Run(ctx, options)
+}
+
+func (r Runner) restartRTP2HTTPD(ctx context.Context) error {
+	if r.RestartRTP2HTTPD != nil {
+		return r.RestartRTP2HTTPD(ctx)
+	}
+	output, err := exec.CommandContext(ctx, "/etc/init.d/rtp2httpd", "restart").CombinedOutput()
+	if err == nil {
+		return nil
+	}
+	detail := strings.TrimSpace(string(output))
+	if detail != "" {
+		return fmt.Errorf("restart rtp2httpd: %w: %s", err, detail)
+	}
+	return fmt.Errorf("restart rtp2httpd: %w", err)
 }
 
 func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
@@ -76,6 +101,7 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 		creds = config.Env{}
 	}
 	creds = creds.NormalizeProviderKeys()
+	capturedFreshCredentials := false
 	if !settings.SkipCapture {
 		logger.Printf("[1/3] capturing STB credentials on %s", settings.Interface)
 		var onCaptureReady func(context.Context) error
@@ -89,7 +115,7 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 				return err
 			}
 		}
-		captured, err := capture.Run(ctx, capture.Options{
+		captured, err := r.capture(ctx, capture.Options{
 			Interface: settings.Interface, Timeout: settings.CaptureTimeout, OutputPath: settings.CredsFile,
 			DumpPath: settings.CaptureDump, TokenHost: settings.TokenHost, Fallback: creds, OnReady: onCaptureReady,
 		})
@@ -100,6 +126,7 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 			logger.Printf("WARNING: credential capture failed, reusing existing credentials: %v", err)
 		} else {
 			creds = captured
+			capturedFreshCredentials = true
 		}
 	}
 	if creds["PROVIDER_USER_ID"] == "" || creds["PROVIDER_STBID"] == "" || creds["PROVIDER_STBINFO"] == "" {
@@ -279,6 +306,14 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 			} else if result.Failed > 0 {
 				logger.Printf("WARNING: logo cache %s downloaded=%d reused=%d failed=%d", path, result.Downloaded, result.Reused, result.Failed)
 			}
+		}
+	}
+	if capturedFreshCredentials && settings.RestartRTP2HTTPDAfterCapture {
+		logger.Printf("credential capture refresh complete; restarting rtp2httpd")
+		if err := r.restartRTP2HTTPD(ctx); err != nil {
+			logger.Printf("WARNING: %v", err)
+		} else {
+			logger.Printf("rtp2httpd restarted after credential capture")
 		}
 	}
 	report.CompletedAt = time.Now()

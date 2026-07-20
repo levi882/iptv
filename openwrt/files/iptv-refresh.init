@@ -72,7 +72,7 @@ ensure_token() {
 }
 
 start_service() {
-	local enabled repo_root env_file creds_file listen_host listen_port token_file iface provider_iface log_max_size stb_power_enabled ha_webhook_url ha_webhook_timeout token
+	local enabled repo_root env_file creds_file listen_host listen_port token_file iface provider_iface log_max_size stb_power_enabled ha_webhook_url ha_webhook_timeout restart_rtp2httpd_after_capture token
 	config_load iptv-refresh
 	config_get_bool enabled main enabled 1
 	refresh_schedule
@@ -89,6 +89,7 @@ start_service() {
 	config_get_bool stb_power_enabled main stb_power_enabled 0
 	config_get ha_webhook_url main ha_webhook_url
 	config_get ha_webhook_timeout main ha_webhook_timeout 10
+	config_get_bool restart_rtp2httpd_after_capture main restart_rtp2httpd_after_capture 0
 	ensure_token "$token_file" || return 1
 	IFS= read -r token < "$token_file"
 	unset token
@@ -106,6 +107,9 @@ start_service() {
 	procd_append_param command --provider-iface "$provider_iface"
 	procd_append_param command --log-max-size "$log_max_size"
 	procd_append_param command --ha-webhook-timeout "$ha_webhook_timeout"
+	if [ "$restart_rtp2httpd_after_capture" -eq 1 ]; then
+		procd_append_param command --restart-rtp2httpd-after-capture
+	fi
 	if [ "$stb_power_enabled" -eq 1 ] && [ -n "$ha_webhook_url" ]; then
 		procd_set_param env IPTV_REFRESH_HA_WEBHOOK_URL="$ha_webhook_url"
 	fi

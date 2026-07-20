@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"iptv/internal/capture"
+	"iptv/internal/config"
 	"iptv/internal/playlist"
 )
 
@@ -50,10 +52,19 @@ func TestOfflineRefresh(t *testing.T) {
 		TokenServer: portal.URL, PlatformOrigin: portal.URL, EPGEntry: portal.URL, EASIP: "127.0.0.1", NetworkID: "1", ProviderTimeout: 3 * time.Second,
 		R2HIGMPPath: "udp", R2HFCCTYPE: "telecom", LineTagRule: "none", DisplayNameMode: "name", CatchupType: "shift",
 		CatchupPlayseek: "{(b)YmdHMS}-{(e)YmdHMS}", LogoMatchThreshold: .65,
+		RestartRTP2HTTPDAfterCapture: true,
 	}
-	report, err := (Runner{}).Run(context.Background(), settings)
+	restartCalls := 0
+	runner := Runner{RestartRTP2HTTPD: func(context.Context) error {
+		restartCalls++
+		return nil
+	}}
+	report, err := runner.Run(context.Background(), settings)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if restartCalls != 0 {
+		t.Fatalf("saved-credential refresh restarted rtp2httpd %d times", restartCalls)
 	}
 	if report.Channels != 4 || report.Timeshift != 3 {
 		t.Fatalf("unexpected report: %#v", report)
@@ -64,6 +75,17 @@ func TestOfflineRefresh(t *testing.T) {
 	}
 	if !strings.HasPrefix(string(playlist), "#EXTM3U\n") || strings.Count(string(playlist), "#EXTINF:") != 4 {
 		t.Fatalf("invalid playlist, size=%d", len(playlist))
+	}
+
+	settings.SkipCapture = false
+	runner.Capture = func(context.Context, capture.Options) (config.Env, error) {
+		return config.Load(creds)
+	}
+	if _, err := runner.Run(context.Background(), settings); err != nil {
+		t.Fatal(err)
+	}
+	if restartCalls != 1 {
+		t.Fatalf("successful credential capture refresh restarted rtp2httpd %d times", restartCalls)
 	}
 }
 

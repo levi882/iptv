@@ -538,6 +538,12 @@ msgstr "日志大小上限已更新为 %s %s。"
 msgid "STB automation"
 msgstr "机顶盒自动化"
 
+msgid "Restart rtp2httpd after credential capture"
+msgstr "抓取凭据后重启 rtp2httpd"
+
+msgid "After a successful credential capture and playlist refresh, restart rtp2httpd. Normal saved-credential refreshes do not restart it."
+msgstr "成功抓取凭据并刷新播放列表后重启 rtp2httpd；使用已保存凭据的普通刷新不会重启它。"
+
 msgid "Power on STB through Home Assistant"
 msgstr "通过 Home Assistant 开启机顶盒"
 

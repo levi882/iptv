@@ -54,6 +54,9 @@ if (!source.includes("'stb_power_enabled'") || !source.includes("'ha_webhook_url
 if (!source.includes("'capture_schedule_enabled'") || !source.includes("'capture_schedule'") || !source.includes("'30 7 * * *'")) {
 	throw new Error('Scheduled credential capture settings are missing');
 }
+if (!source.includes("'restart_rtp2httpd_after_capture'")) {
+	throw new Error('rtp2httpd post-capture restart setting is missing');
+}
 if (!source.includes("o.value('127.0.0.1')")) {
 	throw new Error('Home Assistant compatibility proxy is not loopback-only by default');
 }

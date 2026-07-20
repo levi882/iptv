@@ -135,6 +135,10 @@ return view.extend({
 		o.rmempty = false;
 		o.depends('stb_power_enabled', '1');
 
+		o = s.taboption('automation', form.Flag, 'restart_rtp2httpd_after_capture', _('Restart rtp2httpd after credential capture'), _('After a successful credential capture and playlist refresh, restart rtp2httpd. Normal saved-credential refreshes do not restart it.'));
+		o.default = '0';
+		o.rmempty = false;
+
 		o = s.taboption('automation', form.Flag, 'capture_schedule_enabled', _('Scheduled credential capture and refresh'), _('Run credential capture followed by a full channel and EPG refresh on the router schedule. Enable the Home Assistant power-on webhook above or ensure the STB is powered on at that time.'));
 		o.default = '0';
 		o.rmempty = false;
