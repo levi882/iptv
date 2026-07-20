@@ -2,6 +2,11 @@ name: OpenWrt packages
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing v* tag to build and publish (leave empty for a test build)
+        required: false
+        type: string
   push:
     tags:
       - "v*"
@@ -30,6 +35,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
+          ref: ${{ inputs.release_tag || github.ref }}
 
       - name: Install SDK host dependencies
         run: |
@@ -49,8 +55,49 @@ jobs:
         run: |
           curl --fail --location --retry 3 "$OPENWRT_BASE_URL/config.buildinfo" --output "$SDK_DIR/.config"
           cd "$SDK_DIR"
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+
+          # The release SDK pins every feed to an exact commit. Keep those pins,
+          # but use the official GitHub repositories to avoid relying on a
+          # single git.openwrt.org endpoint.
+          if [ ! -f feeds.conf ]; then
+            cp feeds.conf.default feeds.conf
+          fi
+          sed -i \
+            -e 's#https://git.openwrt.org/openwrt/openwrt.git#https://github.com/openwrt/openwrt.git#' \
+            -e 's#https://git.openwrt.org/feed/packages.git#https://github.com/openwrt/packages.git#' \
+            -e 's#https://git.openwrt.org/project/luci.git#https://github.com/openwrt/luci.git#' \
+            feeds.conf
+
+          update_feed() {
+            feed="$1"
+            attempt=1
+            while [ "$attempt" -le 3 ]; do
+              if ./scripts/feeds update "$feed"; then
+                return 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "Failed to update required feed '$feed' after $attempt attempts" >&2
+                return 1
+              fi
+              delay=$((attempt * 10))
+              echo "Retrying required feed '$feed' in ${delay}s" >&2
+              sleep "$delay"
+              attempt=$((attempt + 1))
+            done
+          }
+
+          # Only these feeds are needed by the backend and LuCI packages.
+          # Avoid fetching routing, telephony, and video.
+          update_feed base
+          update_feed packages
+          update_feed luci
+
+          # Install only the direct build/runtime requirements. The feeds tool
+          # follows their dependency graph, so there is no need to link every
+          # package definition from the three feeds.
+          ./scripts/feeds install -p base ca-bundle tcpdump rpcd-mod-file
+          ./scripts/feeds install -p packages golang
+          ./scripts/feeds install -p luci luci-base
 
       - name: Build backend, LuCI, and Simplified Chinese packages
         shell: bash
@@ -81,19 +128,20 @@ jobs:
           retention-days: 14
 
       - name: Publish tag release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.release_tag, 'v')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" action-dist/* \
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" action-dist/* \
               --repo "$GITHUB_REPOSITORY" \
               --clobber
           else
-            gh release create "$GITHUB_REF_NAME" action-dist/* \
+            gh release create "$RELEASE_TAG" action-dist/* \
               --repo "$GITHUB_REPOSITORY" \
               --verify-tag \
               --generate-notes \
-              --title "$GITHUB_REF_NAME"
+              --title "$RELEASE_TAG"
           fi
