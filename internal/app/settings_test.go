@@ -15,7 +15,7 @@ func TestLoadPackagedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" || settings.EPGURL != "http://epg.51zmt.top:8000/e1.xml.gz" || len(settings.EPGURLFallbacks) != 1 || settings.EPGURLFallbacks[0] != "https://live.fanmingming.cn/e.xml" || settings.R2HBaseURL != "auto" || settings.XTvgURL != "auto" || settings.LocalLogoURLBase != "auto" {
+	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" || settings.EPGURL != "http://epg.51zmt.top:8000/e1.xml.gz" || len(settings.EPGURLFallbacks) != 2 || settings.EPGURLFallbacks[0] != "https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml" || settings.EPGURLFallbacks[1] != "https://raw.githubusercontent.com/fanmingming/live/main/e.xml" || settings.LogoMatchSource != defaultLogoMatchSource || settings.R2HBaseURL != "auto" || settings.XTvgURL != "auto" || settings.LocalLogoURLBase != "auto" {
 		t.Fatalf("packaged config mismatch: %#v", settings)
 	}
 }
@@ -30,8 +30,35 @@ func TestMissingEPGFallbackUsesPackagedDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(settings.EPGURLFallbacks) != 1 || settings.EPGURLFallbacks[0] != "https://live.fanmingming.cn/e.xml" {
+	if len(settings.EPGURLFallbacks) != 2 || settings.EPGURLFallbacks[0] != "https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml" || settings.EPGURLFallbacks[1] != "https://raw.githubusercontent.com/fanmingming/live/main/e.xml" {
 		t.Fatalf("EPG fallbacks = %#v", settings.EPGURLFallbacks)
+	}
+}
+
+func TestReleasedEPGAndLogoDefaultsAreMigrated(t *testing.T) {
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, "provider.env")
+	content := "EPG_URL_FALLBACKS=https://live.fanmingming.cn/e.xml\n" +
+		"LOGO_MATCH_SOURCE=https://live.fanmingming.com/tv/m3u/index.m3u\n"
+	if err := os.WriteFile(envPath, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	settings, _, err := LoadSettings(dir, envPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(settings.EPGURLFallbacks) != 2 || settings.EPGURLFallbacks[0] != "https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml" {
+		t.Fatalf("EPG fallbacks = %#v", settings.EPGURLFallbacks)
+	}
+	if settings.LogoMatchSource != defaultLogoMatchSource {
+		t.Fatalf("logo source = %q", settings.LogoMatchSource)
+	}
+}
+
+func TestRawThenCDNEPGFallbackIsReordered(t *testing.T) {
+	value := "https://raw.githubusercontent.com/fanmingming/live/main/e.xml https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml"
+	if got := normalizeEPGURLFallbacks(value); got != defaultEPGURLFallbacks {
+		t.Fatalf("normalized fallbacks = %q", got)
 	}
 }
 

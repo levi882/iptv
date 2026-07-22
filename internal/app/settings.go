@@ -9,6 +9,11 @@ import (
 	"iptv/internal/config"
 )
 
+const (
+	defaultEPGURLFallbacks = "https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml https://raw.githubusercontent.com/fanmingming/live/main/e.xml"
+	defaultLogoMatchSource = "https://api.github.com/repos/fanmingming/live/contents/tv"
+)
+
 type Settings struct {
 	RepoRoot  string
 	EnvFile   string
@@ -116,9 +121,13 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 	case strings.EqualFold(bindInterface, "none") || strings.EqualFold(bindInterface, "off"):
 		bindInterface = ""
 	}
-	epgURLFallbacks := "https://live.fanmingming.cn/e.xml"
+	epgURLFallbacks := defaultEPGURLFallbacks
 	if value, exists := env["EPG_URL_FALLBACKS"]; exists {
-		epgURLFallbacks = value
+		epgURLFallbacks = normalizeEPGURLFallbacks(value)
+	}
+	logoMatchSource := defaultLogoMatchSource
+	if value, exists := env["LOGO_MATCH_SOURCE"]; exists {
+		logoMatchSource = normalizeLogoMatchSource(value)
 	}
 
 	s := Settings{
@@ -146,7 +155,7 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		R2HProxyRTSP: env.Bool("R2H_PROXY_RTSP", false), R2HCatchupHost: env["R2H_CATCHUP_HOST"], CatchupType: env.String("CATCHUP_TYPE", "shift"),
 		CatchupPlayseek: env.String("CATCHUP_PLAYSEEK_TEMPLATE", "{(b)YmdHMS}-{(e)YmdHMS}"), CatchupSeekOffset: env["CATCHUP_SEEK_OFFSET"],
 		LineTagRule: env.String("LINE_TAG_RULE", "none"), LineTagUHD: env.String("LINE_TAG_UHD", "超高清"), LineTagHD: env.String("LINE_TAG_HD", "高清"), LineTagSD: env.String("LINE_TAG_SD", "标清"),
-		LogoMatchSource: env["LOGO_MATCH_SOURCE"], LogoURLBase: env["LOGO_URL_BASE"], LogoOverridesFile: env["LOGO_OVERRIDES_FILE"],
+		LogoMatchSource: logoMatchSource, LogoURLBase: env["LOGO_URL_BASE"], LogoOverridesFile: env["LOGO_OVERRIDES_FILE"],
 		LogoMatchThreshold: env.Float("LOGO_MATCH_THRESHOLD", .75), LocalLogoCache: env.Bool("LOCAL_LOGO_CACHE", false),
 		LocalLogoDir: env.String("LOCAL_LOGO_DIR", "/www/iptv_logo"), LocalLogoURLBase: env["LOCAL_LOGO_URL_BASE"], LocalLogoTimeout: time.Duration(env.Int("LOCAL_LOGO_TIMEOUT", 20)) * time.Second,
 		GroupBy51ZMT: env.Bool("GROUP_BY_51ZMT", false), DisplayNameMode: env.String("DISPLAY_NAME_MODE", "name"), UseCache: env.Bool("USE_CACHE", false),
@@ -156,6 +165,33 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		return Settings{}, nil, err
 	}
 	return s, env, nil
+}
+
+func normalizeEPGURLFallbacks(value string) string {
+	items := splitList(value)
+	if len(items) == 1 && strings.EqualFold(items[0], "https://live.fanmingming.cn/e.xml") {
+		return defaultEPGURLFallbacks
+	}
+	if len(items) == 2 {
+		known := map[string]bool{}
+		for _, item := range items {
+			known[strings.ToLower(item)] = true
+		}
+		if known["https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml"] && known["https://raw.githubusercontent.com/fanmingming/live/main/e.xml"] {
+			return defaultEPGURLFallbacks
+		}
+	}
+	return value
+}
+
+func normalizeLogoMatchSource(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "https://live.fanmingming.com/tv/m3u/index.m3u",
+		"https://live.fanmingming.cn/tv/m3u/index.m3u",
+		"https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/index.m3u":
+		return defaultLogoMatchSource
+	}
+	return value
 }
 
 func splitList(value string) []string {
