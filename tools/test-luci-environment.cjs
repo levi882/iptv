@@ -86,6 +86,8 @@ const original = [
 	'MODE=auto',
 	'R2H_TOKEN=secret-token',
 	'HB_BIND_INTERFACE=none',
+	'EPG_URL_FALLBACKS="https://raw.githubusercontent.com/fanmingming/live/main/e.xml https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml"',
+	'LOGO_MATCH_SOURCE=https://live.fanmingming.com/tv/m3u/index.m3u',
 	'UNKNOWN_OPTION=keep-me',
 	''
 ].join('\n');
@@ -97,6 +99,8 @@ assert.strictEqual(app.environmentMap.raw.env.REFRESH_TIMEOUT, '300');
 assert.strictEqual(app.environmentMap.raw.env.DUMP_PATH, '');
 assert.strictEqual(app.environmentMap.raw.env.PROVIDER_STB_TYPE, 'auto');
 assert.strictEqual(app.environmentMap.raw.env.PROVIDER_USER_AGENT, 'auto');
+assert.strictEqual(app.environmentMap.raw.env.EPG_URL_FALLBACKS, 'https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml https://raw.githubusercontent.com/fanmingming/live/main/e.xml');
+assert.strictEqual(app.environmentMap.raw.env.LOGO_MATCH_SOURCE, 'https://api.github.com/repos/fanmingming/live/contents/tv');
 assert(!app.environmentMap.raw.env._raw_preview.includes('secret-token'));
 assert(app.environmentMap.raw.env._raw_preview.includes('R2H_TOKEN=********'));
 
@@ -109,6 +113,8 @@ Promise.resolve(app.load()).then(() => app.writeEnvironment(true)).then(() => {
 	assert(writes[0].content.includes('MODE="igmp"'));
 	assert(writes[0].content.includes('R2H_TOKEN="secret-token"'));
 	assert(writes[0].content.includes('PROVIDER_BIND_INTERFACE="none"'));
+	assert(writes[0].content.includes('EPG_URL_FALLBACKS="https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml https://raw.githubusercontent.com/fanmingming/live/main/e.xml"'));
+	assert(writes[0].content.includes('LOGO_MATCH_SOURCE="https://api.github.com/repos/fanmingming/live/contents/tv"'));
 	assert(!writes[0].content.includes('HB_BIND_INTERFACE'));
 	assert.deepStrictEqual(execs[0], {
 		path: '/usr/libexec/iptv-refresh-luci-action',

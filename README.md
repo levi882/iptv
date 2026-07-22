@@ -227,9 +227,9 @@ the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded
 installers to the router:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r25.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r25.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r25.apk `
+scp .\dist\iptv-refresh-0.1.0-r26.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r26.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r26.apk `
   .\dist\SHA256SUMS `
   .\tools\install-openwrt-apk.sh `
   .\tools\install-openwrt-luci-apk.sh root@router.lan:/tmp/
@@ -240,6 +240,11 @@ ssh root@router.lan "sh /tmp/install-openwrt-luci-apk.sh"
 The installer verifies the release, architecture, and SHA-256 before changing
 the router. APK conffile handling preserves the installed configuration on
 upgrades. It then enables the service and checks `/healthz`.
+Release r26 aligns the LuCI environment editor with backend EPG and logo
+selection. Released legacy defaults are shown in their effective migrated
+form and are persisted when the page is saved; field labels and help now
+describe freshness failover, ordered fallback URLs, the complete logo source,
+and CSV override precedence.
 Release r25 uses the jsDelivr copy of fanmingming's XMLTV guide before the
 GitHub Raw copy when 51zmt is unavailable or expired. Logo matching now reads
 fanmingming's complete GitHub `tv` directory instead of the reduced M3U index.

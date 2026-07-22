@@ -128,7 +128,37 @@ function parseEnvironment(text) {
 		if (!Object.prototype.hasOwnProperty.call(values, current) && Object.prototype.hasOwnProperty.call(values, legacy))
 			values[current] = values[legacy];
 	});
+	if (Object.prototype.hasOwnProperty.call(values, 'EPG_URL_FALLBACKS'))
+		values.EPG_URL_FALLBACKS = normalizeEPGFallbacks(values.EPG_URL_FALLBACKS);
+	if (Object.prototype.hasOwnProperty.call(values, 'LOGO_MATCH_SOURCE'))
+		values.LOGO_MATCH_SOURCE = normalizeLogoMatchSource(values.LOGO_MATCH_SOURCE);
 	return values;
+}
+
+function splitURLList(value) {
+	return String(value || '').trim().split(/[\s,;]+/).filter(function(item) { return item !== ''; });
+}
+
+function normalizeEPGFallbacks(value) {
+	var items = splitURLList(value);
+	if (items.length === 1 && items[0].toLowerCase() === 'https://live.fanmingming.cn/e.xml')
+		return DEFAULTS.EPG_URL_FALLBACKS;
+	if (items.length === 2) {
+		var known = {};
+		items.forEach(function(item) { known[item.toLowerCase()] = true; });
+		if (known['https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml'] && known['https://raw.githubusercontent.com/fanmingming/live/main/e.xml'])
+			return DEFAULTS.EPG_URL_FALLBACKS;
+	}
+	return value;
+}
+
+function normalizeLogoMatchSource(value) {
+	var normalized = String(value || '').trim().toLowerCase();
+	if (normalized === 'https://live.fanmingming.com/tv/m3u/index.m3u' ||
+	    normalized === 'https://live.fanmingming.cn/tv/m3u/index.m3u' ||
+	    normalized === 'https://raw.githubusercontent.com/fanmingming/live/main/tv/m3u/index.m3u')
+		return DEFAULTS.LOGO_MATCH_SOURCE;
+	return value;
 }
 
 function redactEnvironment(text) {
@@ -284,16 +314,16 @@ return view.extend({
 		addValue(s, 'rtp2httpd', 'CATCHUP_SEEK_OFFSET', _('Catch-up seek offset'), _('Seconds added to the rtp2httpd catch-up request.'), 'integer', '-900');
 		addValue(s, 'rtp2httpd', 'IGMP_HTTP_PREFIX', _('Direct IGMP HTTP prefix'), _('Optional direct HTTP prefix used instead of rtp2httpd URL generation.'));
 
-		addValue(s, 'epg', 'EPG_URL', _('EPG download URL'), null, null, DEFAULTS.EPG_URL);
-		addValue(s, 'epg', 'EPG_URL_FALLBACKS', _('EPG fallback URLs'), _('Used in order when the primary guide is unavailable or no longer covers the current time.'), null, DEFAULTS.EPG_URL_FALLBACKS);
+		addValue(s, 'epg', 'EPG_URL', _('Primary EPG URL'), _('Checked first. A successfully downloaded guide is still skipped when its latest programme has expired.'), null, DEFAULTS.EPG_URL);
+		addValue(s, 'epg', 'EPG_URL_FALLBACKS', _('EPG fallback URLs'), _('Checked in order when the primary guide cannot be downloaded or parsed, or no longer covers the current time. Separate URLs with commas, semicolons, or spaces.'), null, DEFAULTS.EPG_URL_FALLBACKS);
 		addValue(s, 'epg', 'EPG_FILE', _('EPG cache file'), null, null, DEFAULTS.EPG_FILE);
 		addValue(s, 'epg', 'EPG_PUBLIC_FILE', _('Published EPG file'), null, null, DEFAULTS.EPG_PUBLIC_FILE);
 		addValue(s, 'epg', 'X_TVG_URL', _('M3U x-tvg-url'), _('Use auto to publish the EPG file through the router LAN address.'), null, DEFAULTS.X_TVG_URL);
 		addValue(s, 'epg', 'EPG_COMPARE_SOURCE', _('EPG comparison source'), _('Optional local file or URL used for channel-name matching.'));
 		addFlag(s, 'epg', 'EPG_REPLACE_NAME', _('Replace provider names with EPG names'), null, '0');
-		addValue(s, 'epg', 'LOGO_MATCH_SOURCE', _('Logo matching playlist'), null, null, DEFAULTS.LOGO_MATCH_SOURCE);
+		addValue(s, 'epg', 'LOGO_MATCH_SOURCE', _('Logo matching source'), _('M3U, CSV, or GitHub Contents API source used to match channel logos. The default is fanmingming\'s complete TV directory.'), null, DEFAULTS.LOGO_MATCH_SOURCE);
 		addValue(s, 'epg', 'LOGO_URL_BASE', _('Logo URL base'));
-		addValue(s, 'epg', 'LOGO_OVERRIDES_FILE', _('Logo overrides file'), null, null, '/mnt/iptv/iptv-refresh/config/local/logo_overrides.csv');
+		addValue(s, 'epg', 'LOGO_OVERRIDES_FILE', _('Logo overrides file'), _('Optional CSV applied after the main logo source; its entries take precedence.'), null, '/mnt/iptv/iptv-refresh/config/local/logo_overrides.csv');
 		addValue(s, 'epg', 'LOGO_MATCH_THRESHOLD', _('Logo match threshold'), _('Similarity from 0 to 1.'), 'ufloat', '0.65');
 		addFlag(s, 'epg', 'LOCAL_LOGO_CACHE', _('Cache logos locally'), null, '1');
 		o = addValue(s, 'epg', 'LOCAL_LOGO_DIR', _('Local logo directory'), null, null, DEFAULTS.LOCAL_LOGO_DIR);
