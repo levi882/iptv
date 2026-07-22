@@ -127,7 +127,7 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		SnapshotOutputPath: env["R2H_SNAPSHOT_OUTPUT_PATH"], SnapshotPath: filepath.Join(repoRoot, "frameset_builder_latest.jsp"),
 		OutputFormat: env.String("OUTPUT_FORMAT", "auto"), Mode: env.String("MODE", "auto"),
 		SortBy: env.String("SORT_BY", "user_channel_id"), OrderReference: env["ORDER_REF"], KeepUnmatched: keepUnmatched == "append",
-		EPGURL: env["EPG_URL"], EPGFile: env.String("EPG_FILE", filepath.Join(repoRoot, "cache", "e1.xml.gz")),
+		EPGURL: normalizeEPGURL(env["EPG_URL"]), EPGFile: env.String("EPG_FILE", filepath.Join(repoRoot, "cache", "e1.xml.gz")),
 		EPGPublicFile: env.String("EPG_PUBLIC_FILE", "/www/iptv_epg/e1.xml.gz"), EPGCompareSource: env["EPG_COMPARE_SOURCE"],
 		EPGReplaceName: env.Bool("EPG_REPLACE_NAME", false), XTvgURL: env["X_TVG_URL"],
 		TokenServer: env.String("PROVIDER_TOKEN_SERVER", "auto"), PlatformOrigin: env.String("PROVIDER_PLATFORM_ORIGIN", "auto"),
@@ -151,6 +151,16 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		return Settings{}, nil, err
 	}
 	return s, env, nil
+}
+
+func normalizeEPGURL(value string) string {
+	// e1.xml.gz was accidentally shipped as the package default even though
+	// the 51zmt XMLTV endpoint is e.xml.gz. Correct only that exact legacy
+	// value so custom EPG paths remain untouched after an upgrade.
+	if strings.EqualFold(strings.TrimSpace(value), "http://epg.51zmt.top:8000/e1.xml.gz") {
+		return "http://epg.51zmt.top:8000/e.xml.gz"
+	}
+	return value
 }
 
 func splitList(value string) []string {

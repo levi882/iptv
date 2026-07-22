@@ -172,7 +172,7 @@ func TestCurrentGeneratedArtifactsParityWhenPresent(t *testing.T) {
 	logoMatched := playlist.AttachLogos(rows, logoCandidates, settings.LogoMatchThreshold)
 	t.Logf("local artifact logos matched=%d candidates=%d", logoMatched, len(logoCandidates))
 	groups := groupsFromM3U(string(currentMain))
-	catchup = playlist.ConvertCatchup(catchup, settings.R2HCatchupHost, settings.CatchupPlayseek, settings.CatchupSeekOffset)
+	catchup = playlist.ConvertCatchup(catchup, settings.R2HCatchupHost, settings.CatchupPlayseek, settings.CatchupSeekOffset, settings.R2HToken)
 	options := playlist.RenderOptions{
 		DisplayNameMode: settings.DisplayNameMode, XTvgURL: settings.XTvgURL, GroupNames: groups,
 		Catchup: catchup, TimeShiftLength: lengths, CatchupType: settings.CatchupType,

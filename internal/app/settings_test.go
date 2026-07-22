@@ -15,8 +15,19 @@ func TestLoadPackagedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" {
+	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" || settings.EPGURL != "http://epg.51zmt.top:8000/e.xml.gz" || settings.R2HBaseURL != "auto" || settings.XTvgURL != "auto" || settings.LocalLogoURLBase != "auto" {
 		t.Fatalf("packaged config mismatch: %#v", settings)
+	}
+}
+
+func TestLegacyEPGDefaultIsCorrected(t *testing.T) {
+	const legacy = "http://epg.51zmt.top:8000/e1.xml.gz"
+	if got := normalizeEPGURL(legacy); got != "http://epg.51zmt.top:8000/e.xml.gz" {
+		t.Fatalf("legacy EPG URL = %q", got)
+	}
+	const custom = "https://example.test/e1.xml.gz"
+	if got := normalizeEPGURL(custom); got != custom {
+		t.Fatalf("custom EPG URL changed to %q", got)
 	}
 }
 

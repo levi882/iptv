@@ -469,6 +469,18 @@ msgstr "rtp2httpd"
 msgid "rtp2httpd base URL"
 msgstr "rtp2httpd 基础 URL"
 
+msgid "Use auto to discover the LAN address and rtp2httpd listen port, or enter an explicit URL."
+msgstr "使用 auto 自动发现 LAN 地址和 rtp2httpd 监听端口，或输入明确的 URL。"
+
+msgid "Use auto to reuse the discovered rtp2httpd address, or enter a host and port without a scheme."
+msgstr "使用 auto 复用自动发现的 rtp2httpd 地址，或输入不带协议的主机和端口。"
+
+msgid "Use auto to publish the EPG file through the router LAN address."
+msgstr "使用 auto 通过路由器 LAN 地址发布 EPG 文件。"
+
+msgid "Use auto to publish cached logos through the router LAN address."
+msgstr "使用 auto 通过路由器 LAN 地址发布缓存的台标。"
+
 msgid "unknown"
 msgstr "未知"
 

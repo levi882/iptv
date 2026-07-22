@@ -227,9 +227,9 @@ the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded
 installers to the router:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r21.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r21.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r21.apk `
+scp .\dist\iptv-refresh-0.1.0-r23.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r23.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r23.apk `
   .\dist\SHA256SUMS `
   .\tools\install-openwrt-apk.sh `
   .\tools\install-openwrt-luci-apk.sh root@router.lan:/tmp/
@@ -240,6 +240,10 @@ ssh root@router.lan "sh /tmp/install-openwrt-luci-apk.sh"
 The installer verifies the release, architecture, and SHA-256 before changing
 the router. APK conffile handling preserves the installed configuration on
 upgrades. It then enables the service and checks `/healthz`.
+Release r23 restores automatic LAN URLs for rtp2httpd, catch-up, EPG, and local
+logos, corrects the packaged 51zmt EPG endpoint, and forwards the discovered
+rtp2httpd token in catch-up URLs. Blank local URL fields preserved from r18-r22
+are treated as automatic settings.
 Release r21 adds an opt-in post-capture restart for `rtp2httpd`. Release r20
 fixes service startup on OpenWrt when the scheduler loads the UCI
 shell library with nounset checking enabled. Release r19 adds LuCI-managed
@@ -259,6 +263,12 @@ and check the output paths, rtp2httpd address/token, EPG, logo, and provider
 settings. The same values can be edited directly in
 `/etc/iptv-refresh/provider.env`. Check `/etc/config/iptv-refresh`, then enable and
 start the service:
+
+The packaged local URL fields use `auto`. On OpenWrt, each refresh discovers
+the current LAN address and the first enabled rtp2httpd listen port, then uses
+them for live proxy, catch-up, the published EPG, and locally cached logos.
+Set an explicit URL/host to override discovery, or `off` to disable an optional
+published URL. Blank values from earlier releases are also treated as `auto`.
 
 ```sh
 chmod 600 /etc/iptv-refresh/provider.env /etc/iptv-refresh/token

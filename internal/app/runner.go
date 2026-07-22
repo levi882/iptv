@@ -80,6 +80,10 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 		defer cancel()
 	}
 	logger := r.logger()
+	settings = resolveLocalURLs(settings, discoverLocalServices(ctx))
+	if settings.R2HBaseURL != "" || settings.XTvgURL != "" || settings.LocalLogoURLBase != "" {
+		logger.Printf("local URLs: rtp2httpd=%s EPG=%s logos=%s", settings.R2HBaseURL, settings.XTvgURL, settings.LocalLogoURLBase)
+	}
 	lock, err := runlock.Acquire(filepath.Join(os.TempDir(), "iptv_refresh.lock"))
 	if err != nil {
 		return Report{}, err
@@ -274,7 +278,7 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 			rows, _ = playlist.Reorder(rows, refs, settings.KeepUnmatched)
 		}
 	}
-	catchup = playlist.ConvertCatchup(catchup, settings.R2HCatchupHost, settings.CatchupPlayseek, settings.CatchupSeekOffset)
+	catchup = playlist.ConvertCatchup(catchup, settings.R2HCatchupHost, settings.CatchupPlayseek, settings.CatchupSeekOffset, settings.R2HToken)
 	renderOptions := playlist.RenderOptions{DisplayNameMode: settings.DisplayNameMode, XTvgURL: settings.XTvgURL, GroupNames: groups, Catchup: catchup, TimeShiftLength: timeshiftLengths, CatchupType: settings.CatchupType}
 	if err := writePlaylist(settings.OutputPath, settings.OutputFormat, rows, renderOptions); err != nil {
 		return Report{}, err

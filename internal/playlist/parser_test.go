@@ -87,7 +87,7 @@ func TestR2HPlaylistGolden(t *testing.T) {
 	_, catchup, lengths := ChannelsToRows(channels)
 	SortChannels(channels, "user_channel_id")
 	rows, _, _ := ChannelsToRows(channels)
-	catchup = ConvertCatchup(catchup, "192.0.2.1:7088", "{(b)YmdHMS}-{(e)YmdHMS}", "-900")
+	catchup = ConvertCatchup(catchup, "192.0.2.1:7088", "{(b)YmdHMS}-{(e)YmdHMS}", "-900", "")
 	output := RenderM3U(rows, RenderOptions{
 		XTvgURL: "http://192.0.2.1/iptv_epg/e1.xml.gz", Catchup: catchup,
 		TimeShiftLength: lengths, CatchupType: "shift",

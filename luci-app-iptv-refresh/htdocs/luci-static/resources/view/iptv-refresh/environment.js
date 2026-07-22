@@ -59,24 +59,24 @@ var DEFAULTS = {
 	LINE_TAG_UHD: '超高清',
 	LINE_TAG_HD: '高清',
 	LINE_TAG_SD: '标清',
-	R2H_BASE_URL: '',
+	R2H_BASE_URL: 'auto',
 	R2H_IGMP_PATH: 'udp',
 	R2H_ADD_FCC: '1',
 	R2H_FCC_TYPE: 'telecom',
 	R2H_PROXY_RTSP: '1',
-	R2H_CATCHUP_HOST: '',
+	R2H_CATCHUP_HOST: 'auto',
 	CATCHUP_TYPE: 'shift',
 	CATCHUP_PLAYSEEK_TEMPLATE: '{(b)YmdHMS}-{(e)YmdHMS}',
 	CATCHUP_SEEK_OFFSET: '-900',
-	EPG_URL: 'http://epg.51zmt.top:8000/e1.xml.gz',
+	EPG_URL: 'http://epg.51zmt.top:8000/e.xml.gz',
 	EPG_FILE: '/mnt/iptv/iptv-refresh/cache/e1.xml.gz',
 	EPG_PUBLIC_FILE: '/www/iptv_epg/e1.xml.gz',
-	X_TVG_URL: '',
+	X_TVG_URL: 'auto',
 	LOGO_MATCH_SOURCE: 'https://live.fanmingming.com/tv/m3u/index.m3u',
 	LOGO_MATCH_THRESHOLD: '0.65',
 	LOCAL_LOGO_CACHE: '1',
 	LOCAL_LOGO_DIR: '/www/iptv_logo',
-	LOCAL_LOGO_URL_BASE: '',
+	LOCAL_LOGO_URL_BASE: 'auto',
 	LOCAL_LOGO_TIMEOUT: '20',
 	CAPTURE_TIMEOUT: '180',
 	REFRESH_TIMEOUT: '300',
@@ -260,7 +260,7 @@ return view.extend({
 		o = addValue(s, 'output', 'LINE_TAG_SD', _('SD tag'), null, null, '标清');
 		o.depends('LINE_TAG_RULE', 'hd_sd');
 
-		addValue(s, 'rtp2httpd', 'R2H_BASE_URL', _('rtp2httpd base URL'), _('Use the host and port configured under rtp2httpd Listen Addresses, for example http://router.lan:5140.'), null, 'http://router.lan:5140');
+		addValue(s, 'rtp2httpd', 'R2H_BASE_URL', _('rtp2httpd base URL'), _('Use auto to discover the LAN address and rtp2httpd listen port, or enter an explicit URL.'), null, DEFAULTS.R2H_BASE_URL);
 		o = addValue(s, 'rtp2httpd', 'R2H_TOKEN', _('R2H token'), _('Must match the R2H Token configured in luci-app-rtp2httpd.'));
 		o.password = true;
 
@@ -277,7 +277,7 @@ return view.extend({
 		o.depends('R2H_ADD_FCC', '1');
 
 		addFlag(s, 'rtp2httpd', 'R2H_PROXY_RTSP', _('Proxy RTSP streams'), _('Rewrite RTSP streams through the rtp2httpd /rtsp/ endpoint.'), '1');
-		addValue(s, 'rtp2httpd', 'R2H_CATCHUP_HOST', _('Catch-up proxy host'), _('Host and port without a scheme, for example router.lan:5140.'), null, 'router.lan:5140');
+		addValue(s, 'rtp2httpd', 'R2H_CATCHUP_HOST', _('Catch-up proxy host'), _('Use auto to reuse the discovered rtp2httpd address, or enter a host and port without a scheme.'), null, DEFAULTS.R2H_CATCHUP_HOST);
 		addValue(s, 'rtp2httpd', 'CATCHUP_TYPE', _('M3U catch-up type'), null, null, 'shift');
 		addValue(s, 'rtp2httpd', 'CATCHUP_PLAYSEEK_TEMPLATE', _('Catch-up playseek template'), null, null, DEFAULTS.CATCHUP_PLAYSEEK_TEMPLATE);
 		addValue(s, 'rtp2httpd', 'CATCHUP_SEEK_OFFSET', _('Catch-up seek offset'), _('Seconds added to the rtp2httpd catch-up request.'), 'integer', '-900');
@@ -286,7 +286,7 @@ return view.extend({
 		addValue(s, 'epg', 'EPG_URL', _('EPG download URL'), null, null, DEFAULTS.EPG_URL);
 		addValue(s, 'epg', 'EPG_FILE', _('EPG cache file'), null, null, DEFAULTS.EPG_FILE);
 		addValue(s, 'epg', 'EPG_PUBLIC_FILE', _('Published EPG file'), null, null, DEFAULTS.EPG_PUBLIC_FILE);
-		addValue(s, 'epg', 'X_TVG_URL', _('M3U x-tvg-url'), null, null, DEFAULTS.X_TVG_URL);
+		addValue(s, 'epg', 'X_TVG_URL', _('M3U x-tvg-url'), _('Use auto to publish the EPG file through the router LAN address.'), null, DEFAULTS.X_TVG_URL);
 		addValue(s, 'epg', 'EPG_COMPARE_SOURCE', _('EPG comparison source'), _('Optional local file or URL used for channel-name matching.'));
 		addFlag(s, 'epg', 'EPG_REPLACE_NAME', _('Replace provider names with EPG names'), null, '0');
 		addValue(s, 'epg', 'LOGO_MATCH_SOURCE', _('Logo matching playlist'), null, null, DEFAULTS.LOGO_MATCH_SOURCE);
@@ -296,7 +296,7 @@ return view.extend({
 		addFlag(s, 'epg', 'LOCAL_LOGO_CACHE', _('Cache logos locally'), null, '1');
 		o = addValue(s, 'epg', 'LOCAL_LOGO_DIR', _('Local logo directory'), null, null, DEFAULTS.LOCAL_LOGO_DIR);
 		o.depends('LOCAL_LOGO_CACHE', '1');
-		o = addValue(s, 'epg', 'LOCAL_LOGO_URL_BASE', _('Local logo URL base'), null, null, DEFAULTS.LOCAL_LOGO_URL_BASE);
+		o = addValue(s, 'epg', 'LOCAL_LOGO_URL_BASE', _('Local logo URL base'), _('Use auto to publish cached logos through the router LAN address.'), null, DEFAULTS.LOCAL_LOGO_URL_BASE);
 		o.depends('LOCAL_LOGO_CACHE', '1');
 		o = addValue(s, 'epg', 'LOCAL_LOGO_TIMEOUT', _('Logo download timeout'), _('Seconds.'), 'uinteger', '20');
 		o.depends('LOCAL_LOGO_CACHE', '1');

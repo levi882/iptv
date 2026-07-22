@@ -43,7 +43,7 @@ jobs:
 
           if [ -n "$requested" ]; then
             if [[ ! "$requested" =~ ^v[0-9A-Za-z._-]+$ ]]; then
-              echo "Invalid release tag '$REQUESTED_RELEASE_TAG'; expected a value such as v0.1.0-r21" >&2
+              echo "Invalid release tag '$REQUESTED_RELEASE_TAG'; expected a value such as v0.1.0-r23" >&2
               exit 1
             fi
             source_ref="refs/tags/$requested"
