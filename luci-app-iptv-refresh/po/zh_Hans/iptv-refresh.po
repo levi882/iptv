@@ -604,6 +604,12 @@ msgstr "定时捕获凭据并刷新"
 msgid "Run credential capture followed by a full channel and EPG refresh on the router schedule. Enable the Home Assistant power-on webhook above or ensure the STB is powered on at that time."
 msgstr "按路由器计划先捕获凭据，再完整刷新频道和 EPG。请启用上方的 Home Assistant 开机 Webhook，或确保届时机顶盒已经开机。"
 
+msgid "EPG fallback URLs"
+msgstr "EPG 备用地址"
+
+msgid "Used in order when the primary guide is unavailable or no longer covers the current time."
+msgstr "当主节目单不可用或已不再覆盖当前时间时，按顺序使用。"
+
 msgid "Cron expression"
 msgstr "Cron 表达式"
 

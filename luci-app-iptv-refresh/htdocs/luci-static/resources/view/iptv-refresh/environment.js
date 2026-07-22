@@ -17,7 +17,7 @@ var ENV_KEYS = [
 	'LINE_TAG_HD', 'LINE_TAG_SD', 'R2H_BASE_URL', 'R2H_TOKEN',
 	'R2H_IGMP_PATH', 'R2H_ADD_FCC', 'R2H_FCC_TYPE', 'R2H_PROXY_RTSP',
 	'R2H_CATCHUP_HOST', 'CATCHUP_TYPE', 'CATCHUP_PLAYSEEK_TEMPLATE',
-	'CATCHUP_SEEK_OFFSET', 'IGMP_HTTP_PREFIX', 'EPG_URL', 'EPG_FILE',
+	'CATCHUP_SEEK_OFFSET', 'IGMP_HTTP_PREFIX', 'EPG_URL', 'EPG_URL_FALLBACKS', 'EPG_FILE',
 	'EPG_PUBLIC_FILE', 'EPG_COMPARE_SOURCE', 'EPG_REPLACE_NAME', 'X_TVG_URL',
 	'LOGO_MATCH_SOURCE', 'LOGO_URL_BASE', 'LOGO_OVERRIDES_FILE',
 	'LOGO_MATCH_THRESHOLD', 'LOCAL_LOGO_CACHE', 'LOCAL_LOGO_DIR',
@@ -68,7 +68,8 @@ var DEFAULTS = {
 	CATCHUP_TYPE: 'shift',
 	CATCHUP_PLAYSEEK_TEMPLATE: '{(b)YmdHMS}-{(e)YmdHMS}',
 	CATCHUP_SEEK_OFFSET: '-900',
-	EPG_URL: 'http://epg.51zmt.top:8000/e.xml.gz',
+	EPG_URL: 'http://epg.51zmt.top:8000/e1.xml.gz',
+	EPG_URL_FALLBACKS: 'https://live.fanmingming.cn/e.xml',
 	EPG_FILE: '/mnt/iptv/iptv-refresh/cache/e1.xml.gz',
 	EPG_PUBLIC_FILE: '/www/iptv_epg/e1.xml.gz',
 	X_TVG_URL: 'auto',
@@ -284,6 +285,7 @@ return view.extend({
 		addValue(s, 'rtp2httpd', 'IGMP_HTTP_PREFIX', _('Direct IGMP HTTP prefix'), _('Optional direct HTTP prefix used instead of rtp2httpd URL generation.'));
 
 		addValue(s, 'epg', 'EPG_URL', _('EPG download URL'), null, null, DEFAULTS.EPG_URL);
+		addValue(s, 'epg', 'EPG_URL_FALLBACKS', _('EPG fallback URLs'), _('Used in order when the primary guide is unavailable or no longer covers the current time.'), null, DEFAULTS.EPG_URL_FALLBACKS);
 		addValue(s, 'epg', 'EPG_FILE', _('EPG cache file'), null, null, DEFAULTS.EPG_FILE);
 		addValue(s, 'epg', 'EPG_PUBLIC_FILE', _('Published EPG file'), null, null, DEFAULTS.EPG_PUBLIC_FILE);
 		addValue(s, 'epg', 'X_TVG_URL', _('M3U x-tvg-url'), _('Use auto to publish the EPG file through the router LAN address.'), null, DEFAULTS.X_TVG_URL);

@@ -15,19 +15,38 @@ func TestLoadPackagedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" || settings.EPGURL != "http://epg.51zmt.top:8000/e.xml.gz" || settings.R2HBaseURL != "auto" || settings.XTvgURL != "auto" || settings.LocalLogoURLBase != "auto" {
+	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" || settings.EPGURL != "http://epg.51zmt.top:8000/e1.xml.gz" || len(settings.EPGURLFallbacks) != 1 || settings.EPGURLFallbacks[0] != "https://live.fanmingming.cn/e.xml" || settings.R2HBaseURL != "auto" || settings.XTvgURL != "auto" || settings.LocalLogoURLBase != "auto" {
 		t.Fatalf("packaged config mismatch: %#v", settings)
 	}
 }
 
-func TestLegacyEPGDefaultIsCorrected(t *testing.T) {
-	const legacy = "http://epg.51zmt.top:8000/e1.xml.gz"
-	if got := normalizeEPGURL(legacy); got != "http://epg.51zmt.top:8000/e.xml.gz" {
-		t.Fatalf("legacy EPG URL = %q", got)
+func TestMissingEPGFallbackUsesPackagedDefault(t *testing.T) {
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, "provider.env")
+	if err := os.WriteFile(envPath, []byte("EPG_URL=http://example.test/primary.xml\n"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	const custom = "https://example.test/e1.xml.gz"
-	if got := normalizeEPGURL(custom); got != custom {
-		t.Fatalf("custom EPG URL changed to %q", got)
+	settings, _, err := LoadSettings(dir, envPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(settings.EPGURLFallbacks) != 1 || settings.EPGURLFallbacks[0] != "https://live.fanmingming.cn/e.xml" {
+		t.Fatalf("EPG fallbacks = %#v", settings.EPGURLFallbacks)
+	}
+}
+
+func TestExplicitBlankEPGFallbackDisablesDefault(t *testing.T) {
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, "provider.env")
+	if err := os.WriteFile(envPath, []byte("EPG_URL=http://example.test/primary.xml\nEPG_URL_FALLBACKS=\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	settings, _, err := LoadSettings(dir, envPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(settings.EPGURLFallbacks) != 0 {
+		t.Fatalf("EPG fallbacks = %#v, want none", settings.EPGURLFallbacks)
 	}
 }
 

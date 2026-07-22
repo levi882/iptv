@@ -139,17 +139,40 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	}
 
 	reader := source.Reader{CacheDir: filepath.Join(settings.RepoRoot, "cache", "sources"), UseCache: settings.UseCache}
-	if settings.EPGURL != "" {
-		logger.Printf("EPG: downloading %s", settings.EPGURL)
-		if raw, err := reader.Read(ctx, settings.EPGURL); err != nil {
-			logger.Printf("WARNING: EPG download failed: %v", err)
-		} else if _, err := atomicfile.WriteIfChanged(settings.EPGFile, raw, 0o644); err != nil {
-			logger.Printf("WARNING: EPG write failed: %v", err)
+	if settings.EPGURL != "" || len(settings.EPGURLFallbacks) > 0 {
+		epgReader := reader
+		epgReader.TTL = 3 * time.Hour
+		urls := append([]string{settings.EPGURL}, settings.EPGURLFallbacks...)
+		selected, err := selectEPGSource(ctx, urls, time.Now(), time.Local, func(ctx context.Context, url string) ([]byte, error) {
+			logger.Printf("EPG: checking %s", url)
+			return epgReader.Read(ctx, url)
+		})
+		if err != nil {
+			logger.Printf("WARNING: EPG selection failed: %v", err)
+		} else {
+			for _, note := range selected.Notes {
+				logger.Printf("WARNING: EPG source issue: %s", note)
+			}
+			if !selected.Fresh {
+				logger.Printf("WARNING: all usable EPG sources are expired; using %s (latest programme %s)", selected.URL, selected.Coverage.Latest.Format(time.RFC3339))
+			} else {
+				logger.Printf("EPG: using %s (programmes=%d latest=%s)", selected.URL, selected.Coverage.Programmes, selected.Coverage.Latest.Format(time.RFC3339))
+			}
+		}
+		if err == nil {
+			encoded, err := epgBytesForPath(selected.Raw, settings.EPGFile)
+			if err != nil {
+				logger.Printf("WARNING: EPG encoding failed: %v", err)
+			} else if _, err := atomicfile.WriteIfChanged(settings.EPGFile, encoded, 0o644); err != nil {
+				logger.Printf("WARNING: EPG write failed: %v", err)
+			}
 		}
 	}
 	if settings.EPGFile != "" && settings.EPGPublicFile != "" {
 		if raw, err := os.ReadFile(settings.EPGFile); err == nil {
-			if _, err := atomicfile.WriteIfChanged(settings.EPGPublicFile, raw, 0o644); err != nil {
+			if encoded, err := epgBytesForPath(raw, settings.EPGPublicFile); err != nil {
+				logger.Printf("WARNING: EPG publish encoding failed: %v", err)
+			} else if _, err := atomicfile.WriteIfChanged(settings.EPGPublicFile, encoded, 0o644); err != nil {
 				logger.Printf("WARNING: EPG publish failed: %v", err)
 			}
 		}

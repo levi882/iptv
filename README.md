@@ -227,9 +227,9 @@ the three APKs and `SHA256SUMS` in `dist/`, then copy them with the guarded
 installers to the router:
 
 ```powershell
-scp .\dist\iptv-refresh-0.1.0-r23.apk `
-  .\dist\luci-app-iptv-refresh-0.1.0-r23.apk `
-  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r23.apk `
+scp .\dist\iptv-refresh-0.1.0-r24.apk `
+  .\dist\luci-app-iptv-refresh-0.1.0-r24.apk `
+  .\dist\luci-i18n-iptv-refresh-zh-cn-0.1.0-r24.apk `
   .\dist\SHA256SUMS `
   .\tools\install-openwrt-apk.sh `
   .\tools\install-openwrt-luci-apk.sh root@router.lan:/tmp/
@@ -240,6 +240,12 @@ ssh root@router.lan "sh /tmp/install-openwrt-luci-apk.sh"
 The installer verifies the release, architecture, and SHA-256 before changing
 the router. APK conffile handling preserves the installed configuration on
 upgrades. It then enables the service and checks `/healthz`.
+Release r24 ensures published `.xml.gz` guides contain actual gzip data and
+adds freshness-aware EPG failover. The 51zmt `e1.xml.gz` guide remains the
+primary source; when it cannot be downloaded, parsed, or no longer covers the
+current time, the refresh automatically uses the fanmingming China XMLTV feed.
+Its EPG source cache expires after three hours, and custom fallback URLs can be
+set with `EPG_URL_FALLBACKS`.
 Release r23 restores automatic LAN URLs for rtp2httpd, catch-up, EPG, and local
 logos, corrects the packaged 51zmt EPG endpoint, and forwards the discovered
 rtp2httpd token in catch-up URLs. Blank local URL fields preserved from r18-r22
