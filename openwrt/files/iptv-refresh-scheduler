@@ -60,7 +60,9 @@ validate_expression() {
 reload_cron() {
 	[ -x "$CRON_INIT" ] || return 0
 	if "$CRON_INIT" running >/dev/null 2>&1; then
-		"$CRON_INIT" reload >/dev/null 2>&1 || "$CRON_INIT" restart >/dev/null 2>&1
+		if [ "$2" -eq 1 ]; then
+			"$CRON_INIT" reload >/dev/null 2>&1 || "$CRON_INIT" restart >/dev/null 2>&1
+		fi
 	elif [ "$1" -eq 1 ]; then
 		"$CRON_INIT" start >/dev/null 2>&1
 	fi
@@ -112,8 +114,11 @@ sync_crontab() {
 	if [ "$changed" -eq 1 ]; then
 		chmod 0600 "$cron_tmp"
 		mv -f "$cron_tmp" "$CRONTAB_FILE"
-		reload_cron "$schedule_enabled"
 	fi
+	# A previous sync may already have written the same crontab while cron was
+	# stopped. Always ensure cron is running for an enabled schedule, but only
+	# reload a running daemon when the file actually changed.
+	reload_cron "$schedule_enabled" "$changed"
 	trap - EXIT HUP INT TERM
 	rm -f "$cron_tmp"
 	[ "$invalid_expression" -eq 0 ]

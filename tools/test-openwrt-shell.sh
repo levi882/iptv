@@ -108,6 +108,37 @@ if grep -Fq '# iptv-refresh scheduled capture' "$cron_fixture"; then
 	exit 1
 fi
 
+cron_init_fixture="$TEST_DIR/cron-init"
+cron_state_fixture="$TEST_DIR/cron-state"
+cron_actions_fixture="$TEST_DIR/cron-actions"
+printf '%s\n' \
+	'#!/bin/sh' \
+	'case "$1" in' \
+	' running) [ -f "$IPTV_REFRESH_TEST_CRON_STATE" ] ;;' \
+	' start) : > "$IPTV_REFRESH_TEST_CRON_STATE"; printf "%s\n" start >> "$IPTV_REFRESH_TEST_CRON_ACTIONS" ;;' \
+	' reload) printf "%s\n" reload >> "$IPTV_REFRESH_TEST_CRON_ACTIONS" ;;' \
+	' restart) printf "%s\n" restart >> "$IPTV_REFRESH_TEST_CRON_ACTIONS" ;;' \
+	'esac' > "$cron_init_fixture"
+chmod 0755 "$cron_init_fixture"
+export IPTV_REFRESH_CRON_INIT="$cron_init_fixture"
+export IPTV_REFRESH_TEST_CRON_STATE="$cron_state_fixture"
+export IPTV_REFRESH_TEST_CRON_ACTIONS="$cron_actions_fixture"
+export TEST_SCHEDULE_ENABLED=1
+sh "$scheduler" sync
+grep -Fxq start "$cron_actions_fixture"
+sh "$scheduler" sync
+[ "$(wc -l < "$cron_actions_fixture")" -eq 1 ] || {
+	echo "Unchanged scheduled capture unnecessarily reloaded cron" >&2
+	exit 1
+}
+export TEST_SCHEDULE_EXPRESSION='31 7 * * *'
+sh "$scheduler" sync
+grep -Fxq reload "$cron_actions_fixture"
+[ "$(wc -l < "$cron_actions_fixture")" -eq 2 ] || {
+	echo "Changed scheduled capture did not reload cron exactly once" >&2
+	exit 1
+}
+
 nginx_helper="$ROOT/openwrt/files/iptv-refresh-nginx-config"
 auth="$(sh "$nginx_helper" render-auth 0123456789abcdef)"
 [ "$auth" = 'proxy_set_header Authorization "Bearer 0123456789abcdef";' ] || {
