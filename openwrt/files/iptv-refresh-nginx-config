@@ -1,5 +1,9 @@
 #!/bin/sh
-set -eu
+# /lib/functions.sh and its UCI compatibility layer are not safe to source
+# with nounset enabled: they read internal state variables before initializing
+# them on the first config_load. Keep errexit, but let the OpenWrt library
+# apply its normal empty-string defaults.
+set -e
 
 # OpenWrt's /lib/functions.sh reads this package-manager variable directly.
 # Runtime service calls do not define it, so initialize it before sourcing the

@@ -65,7 +65,10 @@ fi
 functions_fixture="$TEST_DIR/functions.sh"
 printf '%s\n' \
 	': "$IPKG_INSTROOT"' \
-	'config_load() { :; }' \
+	'config_load() {' \
+	' for stale in $CONFIG_LIST_STATE; do :; done' \
+	' [ -n "$NO_CALLBACK" ] || :' \
+	'}' \
 	'config_get_bool() {' \
 	' case "$1" in' \
 	'  service_enabled) service_enabled="${TEST_SERVICE_ENABLED:-1}" ;;' \
@@ -86,7 +89,7 @@ export IPTV_REFRESH_SCHEDULER_PATH=/usr/libexec/iptv-refresh-scheduler
 export TEST_SERVICE_ENABLED=1
 export TEST_SCHEDULE_ENABLED=1
 export TEST_SCHEDULE_EXPRESSION='30 7 * * *'
-unset IPKG_INSTROOT
+unset IPKG_INSTROOT CONFIG_LIST_STATE NO_CALLBACK
 sh "$scheduler" sync
 grep -Fq '5 6 * * * /usr/bin/example' "$cron_fixture"
 grep -Fq '30 7 * * * /usr/libexec/iptv-refresh-scheduler run >/dev/null 2>&1 # iptv-refresh scheduled capture' "$cron_fixture"
@@ -129,6 +132,12 @@ grep -Fxq start "$cron_actions_fixture"
 sh "$scheduler" sync
 [ "$(wc -l < "$cron_actions_fixture")" -eq 1 ] || {
 	echo "Unchanged scheduled capture unnecessarily reloaded cron" >&2
+	exit 1
+}
+rm -f "$cron_state_fixture" "$cron_actions_fixture"
+sh "$scheduler" sync
+[ "$(cat "$cron_actions_fixture")" = start ] || {
+	echo "Unchanged scheduled capture did not restart stopped cron" >&2
 	exit 1
 }
 export TEST_SCHEDULE_EXPRESSION='31 7 * * *'
