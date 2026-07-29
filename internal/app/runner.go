@@ -138,7 +138,11 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 		return Report{}, fmt.Errorf("required credentials missing in %s", settings.CredsFile)
 	}
 
-	reader := source.Reader{CacheDir: filepath.Join(settings.RepoRoot, "cache", "sources"), UseCache: settings.UseCache}
+	reader := source.Reader{
+		CacheDir:    filepath.Join(settings.RepoRoot, "cache", "sources"),
+		UseCache:    settings.UseCache,
+		GitHubToken: settings.GitHubToken,
+	}
 	if settings.EPGURL != "" || len(settings.EPGURLFallbacks) > 0 {
 		epgReader := reader
 		epgReader.TTL = 3 * time.Hour

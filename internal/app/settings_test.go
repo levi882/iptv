@@ -77,6 +77,21 @@ func TestExplicitBlankEPGFallbackDisablesDefault(t *testing.T) {
 	}
 }
 
+func TestGitHubTokenIsLoaded(t *testing.T) {
+	dir := t.TempDir()
+	envPath := filepath.Join(dir, "provider.env")
+	if err := os.WriteFile(envPath, []byte("GITHUB_TOKEN=github-secret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	settings, _, err := LoadSettings(dir, envPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.GitHubToken != "github-secret" {
+		t.Fatalf("GitHub token was not loaded")
+	}
+}
+
 func TestProviderBindInterfaceModes(t *testing.T) {
 	tests := []struct {
 		name     string

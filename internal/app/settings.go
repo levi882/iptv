@@ -80,6 +80,7 @@ type Settings struct {
 	LineTagSD   string
 
 	LogoMatchSource    string
+	GitHubToken        string
 	LogoURLBase        string
 	LogoOverridesFile  string
 	LogoMatchThreshold float64
@@ -155,7 +156,7 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		R2HProxyRTSP: env.Bool("R2H_PROXY_RTSP", false), R2HCatchupHost: env["R2H_CATCHUP_HOST"], CatchupType: env.String("CATCHUP_TYPE", "shift"),
 		CatchupPlayseek: env.String("CATCHUP_PLAYSEEK_TEMPLATE", "{(b)YmdHMS}-{(e)YmdHMS}"), CatchupSeekOffset: env["CATCHUP_SEEK_OFFSET"],
 		LineTagRule: env.String("LINE_TAG_RULE", "none"), LineTagUHD: env.String("LINE_TAG_UHD", "超高清"), LineTagHD: env.String("LINE_TAG_HD", "高清"), LineTagSD: env.String("LINE_TAG_SD", "标清"),
-		LogoMatchSource: logoMatchSource, LogoURLBase: env["LOGO_URL_BASE"], LogoOverridesFile: env["LOGO_OVERRIDES_FILE"],
+		LogoMatchSource: logoMatchSource, GitHubToken: env["GITHUB_TOKEN"], LogoURLBase: env["LOGO_URL_BASE"], LogoOverridesFile: env["LOGO_OVERRIDES_FILE"],
 		LogoMatchThreshold: env.Float("LOGO_MATCH_THRESHOLD", .75), LocalLogoCache: env.Bool("LOCAL_LOGO_CACHE", false),
 		LocalLogoDir: env.String("LOCAL_LOGO_DIR", "/www/iptv_logo"), LocalLogoURLBase: env["LOCAL_LOGO_URL_BASE"], LocalLogoTimeout: time.Duration(env.Int("LOCAL_LOGO_TIMEOUT", 20)) * time.Second,
 		GroupBy51ZMT: env.Bool("GROUP_BY_51ZMT", false), DisplayNameMode: env.String("DISPLAY_NAME_MODE", "name"), UseCache: env.Bool("USE_CACHE", false),

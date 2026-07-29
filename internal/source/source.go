@@ -20,11 +20,12 @@ import (
 const maxSourceBytes = 64 << 20
 
 type Reader struct {
-	Client    *http.Client
-	CacheDir  string
-	TTL       time.Duration
-	UseCache  bool
-	UserAgent string
+	Client      *http.Client
+	CacheDir    string
+	TTL         time.Duration
+	UseCache    bool
+	UserAgent   string
+	GitHubToken string
 }
 
 func (r Reader) Read(ctx context.Context, source string) ([]byte, error) {
@@ -50,6 +51,30 @@ func (r Reader) Read(ctx context.Context, source string) ([]byte, error) {
 		ua = "Mozilla/5.0"
 	}
 	req.Header.Set("User-Agent", ua)
+	if r.GitHubToken != "" &&
+		strings.EqualFold(req.URL.Scheme, "https") &&
+		strings.EqualFold(req.URL.Hostname(), "api.github.com") {
+		req.Header.Set("Authorization", "Bearer "+r.GitHubToken)
+		req.Header.Set("Accept", "application/vnd.github+json")
+		req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+		originalCheckRedirect := client.CheckRedirect
+		clientCopy := *client
+		clientCopy.CheckRedirect = func(redirect *http.Request, via []*http.Request) error {
+			if !strings.EqualFold(redirect.URL.Scheme, "https") ||
+				!strings.EqualFold(redirect.URL.Hostname(), "api.github.com") {
+				redirect.Header.Del("Authorization")
+				redirect.Header.Del("X-GitHub-Api-Version")
+			}
+			if originalCheckRedirect != nil {
+				return originalCheckRedirect(redirect, via)
+			}
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			return nil
+		}
+		client = &clientCopy
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		if r.UseCache {
