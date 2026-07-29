@@ -229,6 +229,9 @@ msgstr "台标匹配播放列表"
 msgid "Logo matching source"
 msgstr "台标匹配源"
 
+msgid "GitHub token"
+msgstr "GitHub 令牌"
+
 msgid "M3U, CSV, or GitHub Contents API source used to match channel logos. The default is fanmingming's complete TV directory."
 msgstr "用于匹配频道台标的 M3U、CSV 或 GitHub Contents API 数据源；默认使用 fanmingming 的完整电视台标目录。"
 
@@ -264,6 +267,9 @@ msgstr "仅允许这些源地址调用状态、刷新和播放列表端点。请
 
 msgid "Optional direct HTTP prefix used instead of rtp2httpd URL generation."
 msgstr "可选的直接 HTTP 前缀，用于替代 rtp2httpd URL 生成。"
+
+msgid "Optional token used only for HTTPS requests to api.github.com. Authenticated requests receive a higher rate limit."
+msgstr "可选令牌，仅用于向 api.github.com 发起的 HTTPS 请求；认证请求可获得更高的速率限额。"
 
 msgid "Optional local file or URL used for channel-name matching."
 msgstr "可选的本地文件或 URL，用于匹配频道名称。"

@@ -19,7 +19,7 @@ var ENV_KEYS = [
 	'R2H_CATCHUP_HOST', 'CATCHUP_TYPE', 'CATCHUP_PLAYSEEK_TEMPLATE',
 	'CATCHUP_SEEK_OFFSET', 'IGMP_HTTP_PREFIX', 'EPG_URL', 'EPG_URL_FALLBACKS', 'EPG_FILE',
 	'EPG_PUBLIC_FILE', 'EPG_COMPARE_SOURCE', 'EPG_REPLACE_NAME', 'X_TVG_URL',
-	'LOGO_MATCH_SOURCE', 'LOGO_URL_BASE', 'LOGO_OVERRIDES_FILE',
+	'LOGO_MATCH_SOURCE', 'GITHUB_TOKEN', 'LOGO_URL_BASE', 'LOGO_OVERRIDES_FILE',
 	'LOGO_MATCH_THRESHOLD', 'LOCAL_LOGO_CACHE', 'LOCAL_LOGO_DIR',
 	'LOCAL_LOGO_URL_BASE', 'LOCAL_LOGO_TIMEOUT', 'CAPTURE_TIMEOUT', 'REFRESH_TIMEOUT', 'DUMP_PATH',
 	'PROVIDER_TOKEN_SERVER', 'PROVIDER_PLATFORM_ORIGIN', 'PROVIDER_EPG_ENTRY',
@@ -163,7 +163,7 @@ function normalizeLogoMatchSource(value) {
 
 function redactEnvironment(text) {
 	return String(text || '').replace(
-		/^(\s*(?:export\s+)?R2H_TOKEN\s*=).*$/gm,
+		/^(\s*(?:export\s+)?(?:R2H_TOKEN|GITHUB_TOKEN)\s*=).*$/gm,
 		'$1********'
 	);
 }
@@ -322,6 +322,8 @@ return view.extend({
 		addValue(s, 'epg', 'EPG_COMPARE_SOURCE', _('EPG comparison source'), _('Optional local file or URL used for channel-name matching.'));
 		addFlag(s, 'epg', 'EPG_REPLACE_NAME', _('Replace provider names with EPG names'), null, '0');
 		addValue(s, 'epg', 'LOGO_MATCH_SOURCE', _('Logo matching source'), _('M3U, CSV, or GitHub Contents API source used to match channel logos. The default is fanmingming\'s complete TV directory.'), null, DEFAULTS.LOGO_MATCH_SOURCE);
+		o = addValue(s, 'epg', 'GITHUB_TOKEN', _('GitHub token'), _('Optional token used only for HTTPS requests to api.github.com. Authenticated requests receive a higher rate limit.'));
+		o.password = true;
 		addValue(s, 'epg', 'LOGO_URL_BASE', _('Logo URL base'));
 		addValue(s, 'epg', 'LOGO_OVERRIDES_FILE', _('Logo overrides file'), _('Optional CSV applied after the main logo source; its entries take precedence.'), null, '/mnt/iptv/iptv-refresh/config/local/logo_overrides.csv');
 		addValue(s, 'epg', 'LOGO_MATCH_THRESHOLD', _('Logo match threshold'), _('Similarity from 0 to 1.'), 'ufloat', '0.65');

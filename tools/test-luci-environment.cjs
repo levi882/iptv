@@ -19,8 +19,14 @@ class Option {
 }
 
 class Section {
+	constructor() {
+		this.options = {};
+	}
 	tab() {}
-	taboption() { return new Option(); }
+	taboption(_tab, _type, key) {
+		this.options[key] = new Option();
+		return this.options[key];
+	}
 }
 
 class JSONMap {
@@ -85,6 +91,7 @@ const original = [
 	'# preserved comment',
 	'MODE=auto',
 	'R2H_TOKEN=secret-token',
+	'GITHUB_TOKEN=github-secret',
 	'HB_BIND_INTERFACE=none',
 	'EPG_URL_FALLBACKS="https://raw.githubusercontent.com/fanmingming/live/main/e.xml https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml"',
 	'LOGO_MATCH_SOURCE=https://live.fanmingming.com/tv/m3u/index.m3u',
@@ -101,8 +108,11 @@ assert.strictEqual(app.environmentMap.raw.env.PROVIDER_STB_TYPE, 'auto');
 assert.strictEqual(app.environmentMap.raw.env.PROVIDER_USER_AGENT, 'auto');
 assert.strictEqual(app.environmentMap.raw.env.EPG_URL_FALLBACKS, 'https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml https://raw.githubusercontent.com/fanmingming/live/main/e.xml');
 assert.strictEqual(app.environmentMap.raw.env.LOGO_MATCH_SOURCE, 'https://api.github.com/repos/fanmingming/live/contents/tv');
+assert.strictEqual(app.environmentMap.lastSection.options.GITHUB_TOKEN.password, true);
 assert(!app.environmentMap.raw.env._raw_preview.includes('secret-token'));
+assert(!app.environmentMap.raw.env._raw_preview.includes('github-secret'));
 assert(app.environmentMap.raw.env._raw_preview.includes('R2H_TOKEN=********'));
+assert(app.environmentMap.raw.env._raw_preview.includes('GITHUB_TOKEN=********'));
 
 app.environmentMap.raw.env.MODE = 'igmp';
 Promise.resolve(app.load()).then(() => app.writeEnvironment(true)).then(() => {
@@ -112,6 +122,7 @@ Promise.resolve(app.load()).then(() => app.writeEnvironment(true)).then(() => {
 	assert(writes[0].content.includes('UNKNOWN_OPTION=keep-me'));
 	assert(writes[0].content.includes('MODE="igmp"'));
 	assert(writes[0].content.includes('R2H_TOKEN="secret-token"'));
+	assert(writes[0].content.includes('GITHUB_TOKEN="github-secret"'));
 	assert(writes[0].content.includes('PROVIDER_BIND_INTERFACE="none"'));
 	assert(writes[0].content.includes('EPG_URL_FALLBACKS="https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml https://raw.githubusercontent.com/fanmingming/live/main/e.xml"'));
 	assert(writes[0].content.includes('LOGO_MATCH_SOURCE="https://api.github.com/repos/fanmingming/live/contents/tv"'));
