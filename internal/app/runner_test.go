@@ -23,9 +23,11 @@ func TestOfflineRefresh(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var portalURL string
 	portal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/iptvepg/function/index.jsp":
+			http.SetCookie(w, &http.Cookie{Name: "JSESSIONID", Value: "session", Path: "/"})
 			fmt.Fprint(w, "ok")
 		case "/iptvepg/function/funcportalauth.jsp":
 			if err := r.ParseForm(); err != nil || r.Form.Get("stbtype") != "Captured-STB" || r.Form.Get("prmid") != "captured-prmid" || r.Form.Get("drmsupplier") != "captured-drm" || r.UserAgent() != "Captured-UA" {
@@ -35,10 +37,31 @@ func TestOfflineRefresh(t *testing.T) {
 			fmt.Fprint(w, "ok")
 		case "/iptvepg/function/frameset_builder.jsp":
 			_, _ = w.Write(fixture)
+		case "/iptvepg/frame234/authBySecond.jsp":
+			fmt.Fprintf(w, `<script>var ipport = %q;</script>`, portalURL)
+		case "/authZX/u":
+			fmt.Fprint(w, `{"iptvToken":"guide-token","respCode":"00000"}`)
+		case "/iptvepg/frame226/publicPage/datajsp/channelToLiveFullScreen.jsp":
+			if cookie, err := r.Cookie("iptvToken"); err != nil || cookie.Value != "guide-token" {
+				http.Error(w, "missing guide token", http.StatusForbidden)
+				return
+			}
+			fmt.Fprint(w, `{"totalSize":2,"channelDataList":[{"channelName":"CCTV1HD","channelID":"channel-1","channelIndex":"1"},{"channelName":"Demo4K","channelID":"channel-2","channelIndex":"2"}]}`)
+		case "/iptvepg/frame226/publicPage/datajsp/prevueList.jsp":
+			date, err := time.Parse("20060102", r.URL.Query().Get("curdate"))
+			if err != nil || r.URL.Query().Get("pageSize") != "999" {
+				http.Error(w, "bad guide request", http.StatusBadRequest)
+				return
+			}
+			channelID := r.URL.Query().Get("channelID")
+			start := date.Format("2006.01.02") + " 00:00:00"
+			stop := date.Format("2006.01.02") + " 01:00:00"
+			fmt.Fprintf(w, `{"totalSize":1,"channelPrevueList":[{"prevueName":%q,"prevuecode":%q,"startTime":%q,"endTime":%q}]}`, channelID+"节目", channelID+date.Format("20060102"), start, stop)
 		default:
 			http.NotFound(w, r)
 		}
 	}))
+	portalURL = portal.URL
 	defer portal.Close()
 	root := t.TempDir()
 	creds := filepath.Join(root, "provider.creds.env")
@@ -46,11 +69,15 @@ func TestOfflineRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	output := filepath.Join(root, "config", "local", "local_stb.m3u")
+	epgFile := filepath.Join(root, "cache", "operator.xml.gz")
+	epgPublicFile := filepath.Join(root, "public", "operator.xml.gz")
 	settings := Settings{
 		RepoRoot: root, CredsFile: creds, SkipCapture: true, OutputPath: output,
 		SnapshotPath: filepath.Join(root, "frameset_builder_latest.jsp"), OutputFormat: "m3u", Mode: "auto", SortBy: "user_channel_id",
 		TokenServer: portal.URL, PlatformOrigin: portal.URL, EPGEntry: portal.URL, EASIP: "127.0.0.1", NetworkID: "1", ProviderTimeout: 3 * time.Second,
-		R2HIGMPPath: "udp", R2HFCCTYPE: "telecom", LineTagRule: "none", DisplayNameMode: "name", CatchupType: "shift",
+		EPGFile: epgFile, EPGPublicFile: epgPublicFile, XTvgURL: "http://router.test/operator.xml.gz", GuideTemplate: "frame226", GuideHistoryDays: 1,
+		ProviderCatchupURL: "http://router.test/iptv/catchup",
+		R2HIGMPPath:        "udp", R2HFCCTYPE: "telecom", LineTagRule: "none", DisplayNameMode: "name", CatchupType: "shift",
 		CatchupPlayseek: "{(b)YmdHMS}-{(e)YmdHMS}", LogoMatchThreshold: .65,
 		RestartRTP2HTTPDAfterCapture: true,
 	}
@@ -66,15 +93,32 @@ func TestOfflineRefresh(t *testing.T) {
 	if restartCalls != 0 {
 		t.Fatalf("saved-credential refresh restarted rtp2httpd %d times", restartCalls)
 	}
-	if report.Channels != 4 || report.Timeshift != 3 {
+	if report.Channels != 4 || report.Timeshift != 3 || report.EPGMapped != 2 {
 		t.Fatalf("unexpected report: %#v", report)
 	}
-	playlist, err := os.ReadFile(output)
+	playlistRaw, err := os.ReadFile(output)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(string(playlist), "#EXTM3U\n") || strings.Count(string(playlist), "#EXTINF:") != 4 {
-		t.Fatalf("invalid playlist, size=%d", len(playlist))
+	if !strings.HasPrefix(string(playlistRaw), "#EXTM3U") || strings.Count(string(playlistRaw), "#EXTINF:") != 4 {
+		t.Fatalf("invalid playlist, size=%d", len(playlistRaw))
+	}
+	if !strings.Contains(string(playlistRaw), `tvg-id="channel-1"`) || !strings.Contains(string(playlistRaw), `x-tvg-url="http://router.test/operator.xml.gz"`) {
+		t.Fatalf("playlist did not use operator EPG IDs:\n%s", playlistRaw)
+	}
+	if !strings.Contains(string(playlistRaw), `catchup-source="http://router.test/iptv/catchup?channel=channel-1&start={(b)YmdHMS}&end={(e)YmdHMS}"`) {
+		t.Fatalf("playlist did not use operator TVOD catch-up:\n%s", playlistRaw)
+	}
+	epgRaw, err := os.ReadFile(epgFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	guide, recognized, err := playlist.ParseOperatorEPG(epgRaw, time.Local)
+	if err != nil || !recognized || len(guide.Channels) != 2 || len(guide.Programmes) != 4 {
+		t.Fatalf("generated operator EPG recognized=%v err=%v guide=%#v", recognized, err, guide)
+	}
+	if publicRaw, err := os.ReadFile(epgPublicFile); err != nil || !bytes.Equal(epgRaw, publicRaw) {
+		t.Fatalf("published EPG mismatch: err=%v cache=%d public=%d", err, len(epgRaw), len(publicRaw))
 	}
 
 	settings.SkipCapture = false
@@ -160,9 +204,9 @@ func TestCurrentGeneratedArtifactsParityWhenPresent(t *testing.T) {
 	playlist.SortChannels(channels, settings.SortBy)
 	rows, _, _ := playlist.ChannelsToRows(channels)
 	if epgRaw, err := os.ReadFile(settings.EPGFile); err == nil {
-		if names, err := playlist.ParseEPG(epgRaw); err == nil {
-			mapped, _ := playlist.AttachEPG(rows, names, settings.EPGReplaceName)
-			t.Logf("local artifact EPG mapped=%d names=%d", mapped, len(names))
+		if guide, recognized, err := playlist.ParseOperatorEPG(epgRaw, time.Local); err == nil && recognized {
+			mapped := playlist.AttachOperatorEPG(rows, guide)
+			t.Logf("local operator EPG mapped=%d channels=%d", mapped, len(guide.Channels))
 		}
 	}
 	logoCandidates, err := playlist.ParseLogoCandidates(currentMain, "")

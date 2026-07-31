@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -124,8 +125,23 @@ type Config struct {
 	AllowedIPs   map[string]bool
 	DefaultIface string
 	PlaylistPath string
+	Catchup      CatchupResolver
 	Manager      *Manager
 	Logger       *log.Logger
+}
+
+type CatchupResolver interface {
+	ResolveCatchup(context.Context, string, time.Time, time.Time) (string, error)
+}
+
+func parseCatchupTime(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	for _, layout := range []string{"20060102150405", "200601021504"} {
+		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid catch-up time")
 }
 
 func Handler(config Config) http.Handler {
@@ -211,6 +227,49 @@ func Handler(config Config) http.Handler {
 		}
 		logger.Printf("refresh started from %s on interface %s using %s", r.RemoteAddr, iface, mode)
 		jsonResponse(w, http.StatusAccepted, map[string]any{"ok": true, "msg": "started", "capture": capture})
+	})
+	mux.HandleFunc("/catchup", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			jsonResponse(w, http.StatusMethodNotAllowed, map[string]any{"ok": false, "msg": "method not allowed"})
+			return
+		}
+		if !allowed(r) || !authorized(r) {
+			jsonResponse(w, http.StatusForbidden, map[string]any{"ok": false, "msg": "forbidden"})
+			return
+		}
+		if config.Catchup == nil {
+			jsonResponse(w, http.StatusServiceUnavailable, map[string]any{"ok": false, "msg": "operator catch-up is disabled"})
+			return
+		}
+		channelID := strings.TrimSpace(r.URL.Query().Get("channel"))
+		if channelID == "" || len(channelID) > 128 {
+			jsonResponse(w, http.StatusBadRequest, map[string]any{"ok": false, "msg": "invalid channel"})
+			return
+		}
+		start, err := parseCatchupTime(r.URL.Query().Get("start"))
+		if err != nil {
+			jsonResponse(w, http.StatusBadRequest, map[string]any{"ok": false, "msg": "invalid start time"})
+			return
+		}
+		end, err := parseCatchupTime(r.URL.Query().Get("end"))
+		if err != nil || !end.After(start) || end.Sub(start) > 12*time.Hour {
+			jsonResponse(w, http.StatusBadRequest, map[string]any{"ok": false, "msg": "invalid end time"})
+			return
+		}
+		playURL, err := config.Catchup.ResolveCatchup(r.Context(), channelID, start, end)
+		if err != nil {
+			if errors.Is(err, app.ErrOperatorProgrammeNotFound) {
+				jsonResponse(w, http.StatusNotFound, map[string]any{"ok": false, "msg": "programme is not available for catch-up"})
+				return
+			}
+			logger.Printf("WARNING: operator catch-up failed: %s", redact.Sensitive(err.Error()))
+			jsonResponse(w, http.StatusBadGateway, map[string]any{"ok": false, "msg": "operator catch-up is temporarily unavailable"})
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Referrer-Policy", "no-referrer")
+		w.Header().Set("Location", playURL)
+		w.WriteHeader(http.StatusFound)
 	})
 	mux.HandleFunc("/playlist", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet || !allowed(r) || !authorized(r) {

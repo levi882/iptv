@@ -227,10 +227,11 @@ func serveCommand(args []string) error {
 		logger.SetOutput(io.MultiWriter(os.Stdout, fileLog))
 	}
 	manager := server.NewManager(app.Runner{Logger: logger}, settings)
+	catchupResolver := app.NewOperatorCatchupResolver(settings, logger)
 	address := *host + ":" + strconv.Itoa(*port)
 	httpServer := &http.Server{
 		Addr:              address,
-		Handler:           server.Handler(server.Config{Token: *token, AllowedIPs: allowedMap, DefaultIface: settings.Interface, PlaylistPath: settings.OutputPath, Manager: manager, Logger: logger}),
+		Handler:           server.Handler(server.Config{Token: *token, AllowedIPs: allowedMap, DefaultIface: settings.Interface, PlaylistPath: settings.OutputPath, Catchup: catchupResolver, Manager: manager, Logger: logger}),
 		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

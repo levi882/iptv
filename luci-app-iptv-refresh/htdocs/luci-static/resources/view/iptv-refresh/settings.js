@@ -113,7 +113,7 @@ return view.extend({
 		o.default = '1';
 		o.rmempty = false;
 
-		o = s.taboption('access', form.DynamicList, 'nginx_allow_ip', _('Home Assistant proxy source addresses'), _('Only these IP addresses or CIDR networks may use the token-injecting nginx refresh route. Prefer the exact Home Assistant IP when it is static.'));
+		o = s.taboption('access', form.DynamicList, 'nginx_allow_ip', _('Proxy source addresses'), _('Only these IP addresses or CIDR networks may use the token-injecting refresh and operator catch-up routes. Add each playback device IP, or its trusted LAN CIDR, to use seven-day replay.'));
 		o.datatype = 'ipaddr';
 		o.value('127.0.0.1');
 		o.rmempty = false;

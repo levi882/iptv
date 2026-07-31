@@ -313,8 +313,8 @@ return view.extend({
 			]),
 			E('div', { 'class': 'iptv-metrics' }, [
 				metric(_('Channels'), 'iptv-channels'),
-				metric(_('Timeshift channels'), 'iptv-timeshift'),
-				metric(_('EPG matches'), 'iptv-epg-mapped'),
+				metric(_('Catch-up channels'), 'iptv-timeshift'),
+				metric(_('Operator EPG channels'), 'iptv-epg-mapped'),
 				metric(_('Logo matches'), 'iptv-logos')
 			]),
 			E('div', { 'class': 'iptv-details' }, [

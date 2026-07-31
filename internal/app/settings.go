@@ -2,17 +2,18 @@ package app
 
 import (
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"iptv/internal/config"
 )
 
-const (
-	defaultEPGURLFallbacks = "https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml https://raw.githubusercontent.com/fanmingming/live/main/e.xml"
-	defaultLogoMatchSource = "https://api.github.com/repos/fanmingming/live/contents/tv"
-)
+const defaultLogoMatchSource = "https://api.github.com/repos/fanmingming/live/contents/tv"
+
+var guideTemplateSettingRE = regexp.MustCompile(`^frame[0-9]+$`)
 
 type Settings struct {
 	RepoRoot  string
@@ -38,13 +39,9 @@ type Settings struct {
 	OrderReference     string
 	KeepUnmatched      bool
 
-	EPGURL           string
-	EPGURLFallbacks  []string
-	EPGFile          string
-	EPGPublicFile    string
-	EPGCompareSource string
-	EPGReplaceName   bool
-	XTvgURL          string
+	EPGFile       string
+	EPGPublicFile string
+	XTvgURL       string
 
 	TokenServer           string
 	PlatformOrigin        string
@@ -61,6 +58,9 @@ type Settings struct {
 	BindSourceIP          string
 	UserAgent             string
 	ProviderTimeout       time.Duration
+	GuideTemplate         string
+	GuideHistoryDays      int
+	ProviderCatchupURL    string
 
 	IGMPHTTPPrefix    string
 	R2HBaseURL        string
@@ -122,10 +122,6 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 	case strings.EqualFold(bindInterface, "none") || strings.EqualFold(bindInterface, "off"):
 		bindInterface = ""
 	}
-	epgURLFallbacks := defaultEPGURLFallbacks
-	if value, exists := env["EPG_URL_FALLBACKS"]; exists {
-		epgURLFallbacks = normalizeEPGURLFallbacks(value)
-	}
 	logoMatchSource := defaultLogoMatchSource
 	if value, exists := env["LOGO_MATCH_SOURCE"]; exists {
 		logoMatchSource = normalizeLogoMatchSource(value)
@@ -142,16 +138,17 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		SnapshotOutputPath: env["R2H_SNAPSHOT_OUTPUT_PATH"], SnapshotPath: filepath.Join(repoRoot, "frameset_builder_latest.jsp"),
 		OutputFormat: env.String("OUTPUT_FORMAT", "auto"), Mode: env.String("MODE", "auto"),
 		SortBy: env.String("SORT_BY", "user_channel_id"), OrderReference: env["ORDER_REF"], KeepUnmatched: keepUnmatched == "append",
-		EPGURL: env["EPG_URL"], EPGURLFallbacks: splitList(epgURLFallbacks), EPGFile: env.String("EPG_FILE", filepath.Join(repoRoot, "cache", "e1.xml.gz")),
-		EPGPublicFile: env.String("EPG_PUBLIC_FILE", "/www/iptv_epg/e1.xml.gz"), EPGCompareSource: env["EPG_COMPARE_SOURCE"],
-		EPGReplaceName: env.Bool("EPG_REPLACE_NAME", false), XTvgURL: env["X_TVG_URL"],
+		EPGFile:       env.String("EPG_FILE", filepath.Join(repoRoot, "cache", "e1.xml.gz")),
+		EPGPublicFile: env.String("EPG_PUBLIC_FILE", "/www/iptv_epg/e1.xml.gz"), XTvgURL: env["X_TVG_URL"],
 		TokenServer: env.String("PROVIDER_TOKEN_SERVER", "auto"), PlatformOrigin: env.String("PROVIDER_PLATFORM_ORIGIN", "auto"),
 		EPGEntry: env.String("PROVIDER_EPG_ENTRY", "auto"), EPGFallbacks: splitList(env["PROVIDER_EPG_ENTRY_FALLBACKS"]),
 		EASIP: env.String("PROVIDER_EASIP", "auto"), NetworkID: env.String("PROVIDER_NETWORKID", "auto"), CityCode: env["PROVIDER_CITYCODE"],
 		STBType: env["PROVIDER_STB_TYPE"], PRMID: env["PROVIDER_PRMID"], DRMSupplier: env["PROVIDER_DRM_SUPPLIER"],
 		BindInterface: bindInterface, BindInterfaceExplicit: bindInterfaceExplicit, BindSourceIP: env["PROVIDER_BIND_SOURCE_IP"],
 		UserAgent: env["PROVIDER_USER_AGENT"], ProviderTimeout: time.Duration(env.Int("PROVIDER_TIMEOUT", 20)) * time.Second,
-		IGMPHTTPPrefix: env["IGMP_HTTP_PREFIX"], R2HBaseURL: env["R2H_BASE_URL"], R2HToken: env["R2H_TOKEN"],
+		GuideTemplate: env.String("PROVIDER_EPG_TEMPLATE", "frame226"), GuideHistoryDays: env.Int("PROVIDER_EPG_HISTORY_DAYS", 7),
+		ProviderCatchupURL: env.String("PROVIDER_CATCHUP_URL", "auto"),
+		IGMPHTTPPrefix:     env["IGMP_HTTP_PREFIX"], R2HBaseURL: env["R2H_BASE_URL"], R2HToken: env["R2H_TOKEN"],
 		R2HIGMPPath: env.String("R2H_IGMP_PATH", "udp"), R2HAddFCC: env.Bool("R2H_ADD_FCC", false), R2HFCCTYPE: env.String("R2H_FCC_TYPE", "telecom"),
 		R2HProxyRTSP: env.Bool("R2H_PROXY_RTSP", false), R2HCatchupHost: env["R2H_CATCHUP_HOST"], CatchupType: env.String("CATCHUP_TYPE", "shift"),
 		CatchupPlayseek: env.String("CATCHUP_PLAYSEEK_TEMPLATE", "{(b)YmdHMS}-{(e)YmdHMS}"), CatchupSeekOffset: env["CATCHUP_SEEK_OFFSET"],
@@ -166,23 +163,6 @@ func LoadSettings(repoRoot, envPath string) (Settings, config.Env, error) {
 		return Settings{}, nil, err
 	}
 	return s, env, nil
-}
-
-func normalizeEPGURLFallbacks(value string) string {
-	items := splitList(value)
-	if len(items) == 1 && strings.EqualFold(items[0], "https://live.fanmingming.cn/e.xml") {
-		return defaultEPGURLFallbacks
-	}
-	if len(items) == 2 {
-		known := map[string]bool{}
-		for _, item := range items {
-			known[strings.ToLower(item)] = true
-		}
-		if known["https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml"] && known["https://raw.githubusercontent.com/fanmingming/live/main/e.xml"] {
-			return defaultEPGURLFallbacks
-		}
-	}
-	return value
 }
 
 func normalizeLogoMatchSource(value string) string {
@@ -208,6 +188,18 @@ func (s Settings) Validate() error {
 	}
 	if s.ProviderTimeout <= 0 {
 		return fmt.Errorf("PROVIDER_TIMEOUT must be greater than zero")
+	}
+	if !guideTemplateSettingRE.MatchString(s.GuideTemplate) {
+		return fmt.Errorf("PROVIDER_EPG_TEMPLATE must look like frame226")
+	}
+	if s.GuideHistoryDays < 0 || s.GuideHistoryDays > 7 {
+		return fmt.Errorf("PROVIDER_EPG_HISTORY_DAYS must be between 0 and 7")
+	}
+	if !automaticValue(s.ProviderCatchupURL) && !disabledValue(s.ProviderCatchupURL) {
+		parsed, err := url.Parse(s.ProviderCatchupURL)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+			return fmt.Errorf("PROVIDER_CATCHUP_URL must be auto, off, or an HTTP(S) URL")
+		}
 	}
 	if s.Mode != "auto" && s.Mode != "rtsp" && s.Mode != "igmp" {
 		return fmt.Errorf("MODE must be auto, rtsp, or igmp")

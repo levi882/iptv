@@ -106,23 +106,29 @@ msgstr "EAS IP"
 msgid "EPG & logos"
 msgstr "EPG 与台标"
 
-msgid "EPG cache file"
-msgstr "EPG 缓存文件"
+msgid "Operator EPG cache file"
+msgstr "运营商 EPG 缓存文件"
 
-msgid "EPG comparison source"
-msgstr "EPG 比对源"
+msgid "Operator EPG template"
+msgstr "运营商 EPG 模板"
 
-msgid "EPG download URL"
-msgstr "EPG 下载 URL"
+msgid "Provider portal template used for channel schedules, for example frame226."
+msgstr "用于频道节目单的运营商门户模板，例如 frame226。"
 
-msgid "Primary EPG URL"
-msgstr "主 EPG 地址"
+msgid "Operator EPG history days"
+msgstr "运营商 EPG 历史天数"
 
-msgid "Checked first. A successfully downloaded guide is still skipped when its latest programme has expired."
-msgstr "优先检查此地址；即使下载成功，如果节目覆盖时间已经过期，也会跳过该节目单。"
+msgid "Past schedule days retained in the locally generated XMLTV. The first refresh downloads this history; later refreshes update today only."
+msgstr "本地生成的 XMLTV 所保留的历史节目天数。首次刷新会下载这些历史数据，后续刷新只更新当天。"
 
-msgid "EPG matches"
-msgstr "EPG 匹配数"
+msgid "Operator catch-up URL"
+msgstr "运营商回看地址"
+
+msgid "Use auto to publish the programme-level TVOD resolver through the router LAN address, or off to retain only short rolling timeshift."
+msgstr "使用 auto 可通过路由器局域网地址发布节目级 TVOD 解析入口；使用 off 则仅保留短时滚动时移。"
+
+msgid "Operator EPG channels"
+msgstr "运营商 EPG 频道数"
 
 msgid "EPG name"
 msgstr "EPG 名称"
@@ -376,9 +382,6 @@ msgstr "正在刷新"
 msgid "Reload log"
 msgstr "重新加载日志"
 
-msgid "Replace provider names with EPG names"
-msgstr "用 EPG 名称替换运营商名称"
-
 msgid "Restart"
 msgstr "重启"
 
@@ -448,7 +451,7 @@ msgstr "服务返回了无效的状态响应"
 msgid "The token is managed by the backend and is not displayed in LuCI."
 msgstr "令牌由后端管理，不会显示在 LuCI 中。"
 
-msgid "Timeshift channels"
+msgid "Catch-up channels"
 msgstr "回看频道数"
 
 msgid "The normal refresh does not require the STB. Use credential capture only after saved credentials expire, and keep the STB powered on while capturing."
@@ -529,8 +532,8 @@ msgstr "Home Assistant 兼容代理"
 msgid "Automatically inject the router API token, convert legacy GET refresh requests to POST, and ignore legacy query parameters."
 msgstr "自动注入路由器 API 令牌，将旧版 GET 刷新请求转换为 POST，并忽略旧版查询参数。"
 
-msgid "Home Assistant proxy source addresses"
-msgstr "Home Assistant 代理来源地址"
+msgid "Proxy source addresses"
+msgstr "代理来源地址"
 
 msgid "Log limit"
 msgstr "日志上限"
@@ -595,8 +598,8 @@ msgstr "等待 Home Assistant 接受开机请求的秒数。"
 msgid "The normal refresh does not require the STB. During credential capture, a configured Home Assistant webhook is called after packet capture starts; otherwise power on the STB manually."
 msgstr "普通刷新不需要机顶盒。抓取凭据时，程序会在抓包启动后调用已配置的 Home Assistant Webhook；未配置时请手动开启机顶盒。"
 
-msgid "Only these IP addresses or CIDR networks may use the token-injecting nginx refresh route. Prefer the exact Home Assistant IP when it is static."
-msgstr "仅允许这些 IP 地址或 CIDR 网段使用自动注入令牌的 nginx 刷新路由。Home Assistant 使用静态地址时，建议只填写其准确 IP。"
+msgid "Only these IP addresses or CIDR networks may use the token-injecting refresh and operator catch-up routes. Add each playback device IP, or its trusted LAN CIDR, to use seven-day replay."
+msgstr "仅允许这些 IP 地址或 CIDR 网段使用自动注入令牌的刷新和运营商回看路由。要使用七日回看，请加入各播放设备的 IP 或其可信局域网 CIDR。"
 
 msgid "All interfaces"
 msgstr "所有接口"
@@ -621,15 +624,6 @@ msgstr "定时捕获凭据并刷新"
 
 msgid "Run credential capture followed by a full channel and EPG refresh on the router schedule. Enable the Home Assistant power-on webhook above or ensure the STB is powered on at that time."
 msgstr "按路由器计划先捕获凭据，再完整刷新频道和 EPG。请启用上方的 Home Assistant 开机 Webhook，或确保届时机顶盒已经开机。"
-
-msgid "EPG fallback URLs"
-msgstr "EPG 备用地址"
-
-msgid "Used in order when the primary guide is unavailable or no longer covers the current time."
-msgstr "当主节目单不可用或已不再覆盖当前时间时，按顺序使用。"
-
-msgid "Checked in order when the primary guide cannot be downloaded or parsed, or no longer covers the current time. Separate URLs with commas, semicolons, or spaces."
-msgstr "当主节目单无法下载、无法解析或已不再覆盖当前时间时按顺序检查；多个地址可用逗号、分号或空格分隔。"
 
 msgid "Optional CSV applied after the main logo source; its entries take precedence."
 msgstr "可选的 CSV 覆盖文件，在主台标源之后应用，其中的条目优先。"

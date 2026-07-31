@@ -5,12 +5,14 @@ IPTV Refresh is an OpenWrt-oriented playlist refresh tool. It captures or reuses
 It can:
 
 - Generate M3U playlists with channel ordering, grouping, and name matching.
-- Publish XMLTV guides and switch to ordered fallback sources when the primary guide is unavailable or expired.
+- Fetch the operator's own channel schedules, retain catch-up history, and publish a sorted XMLTV guide.
 - Match and cache channel logos locally.
-- Generate rtp2httpd-compatible live and catch-up URLs.
+- Generate rtp2httpd-compatible live URLs, short rolling timeshift, and programme-level operator TVOD catch-up.
 - Provide LuCI configuration, manual refresh, scheduling, and status pages.
 
 OpenWrt backend, LuCI, and Simplified Chinese packages are available from [Releases](https://github.com/levi882/iptv/releases). Verify downloads with the published `SHA256SUMS`, then configure the service in LuCI for your own network and IPTV subscription.
+
+Operator catch-up uses the `prevuecode` stored in the generated XMLTV to request a fresh TVOD URL only when a historical programme is selected. With `PROVIDER_CATCHUP_URL=auto`, add each playback device IP (or its trusted LAN CIDR) to LuCI's **Proxy source addresses** list so nginx can forward `/iptv/catchup` without exposing the router API token in the playlist.
 
 ## Responsible use
 

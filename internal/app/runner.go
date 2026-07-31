@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -20,22 +19,20 @@ import (
 	"iptv/internal/config"
 	"iptv/internal/logocache"
 	"iptv/internal/playlist"
-	"iptv/internal/portal"
 	"iptv/internal/runlock"
 	"iptv/internal/source"
 	"iptv/internal/stbpower"
 )
 
 type Report struct {
-	Channels      int       `json:"channels"`
-	Timeshift     int       `json:"timeshift"`
-	EPGMapped     int       `json:"epg_mapped"`
-	NamesReplaced int       `json:"names_replaced"`
-	LogosMatched  int       `json:"logos_matched"`
-	OutputPath    string    `json:"output_path"`
-	SnapshotPath  string    `json:"snapshot_path,omitempty"`
-	EPGHost       string    `json:"epg_host"`
-	CompletedAt   time.Time `json:"completed_at"`
+	Channels     int       `json:"channels"`
+	Timeshift    int       `json:"timeshift"`
+	EPGMapped    int       `json:"epg_mapped"`
+	LogosMatched int       `json:"logos_matched"`
+	OutputPath   string    `json:"output_path"`
+	SnapshotPath string    `json:"snapshot_path,omitempty"`
+	EPGHost      string    `json:"epg_host"`
+	CompletedAt  time.Time `json:"completed_at"`
 }
 
 type Runner struct {
@@ -81,8 +78,8 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	}
 	logger := r.logger()
 	settings = resolveLocalURLs(settings, discoverLocalServices(ctx))
-	if settings.R2HBaseURL != "" || settings.XTvgURL != "" || settings.LocalLogoURLBase != "" {
-		logger.Printf("local URLs: rtp2httpd=%s EPG=%s logos=%s", settings.R2HBaseURL, settings.XTvgURL, settings.LocalLogoURLBase)
+	if settings.R2HBaseURL != "" || settings.XTvgURL != "" || settings.LocalLogoURLBase != "" || settings.ProviderCatchupURL != "" {
+		logger.Printf("local URLs: rtp2httpd=%s EPG=%s catch-up=%s logos=%s", settings.R2HBaseURL, settings.XTvgURL, settings.ProviderCatchupURL, settings.LocalLogoURLBase)
 	}
 	lock, err := runlock.Acquire(filepath.Join(os.TempDir(), "iptv_refresh.lock"))
 	if err != nil {
@@ -143,95 +140,20 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 		UseCache:    settings.UseCache,
 		GitHubToken: settings.GitHubToken,
 	}
-	if settings.EPGURL != "" || len(settings.EPGURLFallbacks) > 0 {
-		epgReader := reader
-		epgReader.TTL = 3 * time.Hour
-		urls := append([]string{settings.EPGURL}, settings.EPGURLFallbacks...)
-		selected, err := selectEPGSource(ctx, urls, time.Now(), time.Local, func(ctx context.Context, url string) ([]byte, error) {
-			logger.Printf("EPG: checking %s", url)
-			return epgReader.Read(ctx, url)
-		})
-		if err != nil {
-			logger.Printf("WARNING: EPG selection failed: %v", err)
-		} else {
-			for _, note := range selected.Notes {
-				logger.Printf("WARNING: EPG source issue: %s", note)
-			}
-			if !selected.Fresh {
-				logger.Printf("WARNING: all usable EPG sources are expired; using %s (latest programme %s)", selected.URL, selected.Coverage.Latest.Format(time.RFC3339))
-			} else {
-				logger.Printf("EPG: using %s (programmes=%d latest=%s)", selected.URL, selected.Coverage.Programmes, selected.Coverage.Latest.Format(time.RFC3339))
-			}
-		}
-		if err == nil {
-			encoded, err := epgBytesForPath(selected.Raw, settings.EPGFile)
-			if err != nil {
-				logger.Printf("WARNING: EPG encoding failed: %v", err)
-			} else if _, err := atomicfile.WriteIfChanged(settings.EPGFile, encoded, 0o644); err != nil {
-				logger.Printf("WARNING: EPG write failed: %v", err)
-			}
-		}
-	}
-	if settings.EPGFile != "" && settings.EPGPublicFile != "" {
-		if raw, err := os.ReadFile(settings.EPGFile); err == nil {
-			if encoded, err := epgBytesForPath(raw, settings.EPGPublicFile); err != nil {
-				logger.Printf("WARNING: EPG publish encoding failed: %v", err)
-			} else if _, err := atomicfile.WriteIfChanged(settings.EPGPublicFile, encoded, 0o644); err != nil {
-				logger.Printf("WARNING: EPG publish failed: %v", err)
-			}
-		}
-	}
-	if settings.EPGCompareSource == "" {
-		if _, err := os.Stat(settings.EPGFile); err == nil {
-			settings.EPGCompareSource = settings.EPGFile
-		}
-	}
-
-	settings.TokenServer = resolveValue(settings.TokenServer, creds["PROVIDER_TOKEN_SERVER"], "")
-	settings.PlatformOrigin = resolveValue(settings.PlatformOrigin, creds["PROVIDER_PLATFORM_ORIGIN"], "")
-	settings.EPGEntry = resolveValue(settings.EPGEntry, creds["PROVIDER_EPG_ENTRY"], "")
-	settings.EASIP = resolveValue(settings.EASIP, creds["PROVIDER_EASIP"], "")
-	settings.NetworkID = resolveValue(settings.NetworkID, creds["PROVIDER_NETWORKID"], "")
-	settings.CityCode = resolveValue(settings.CityCode, creds["PROVIDER_CITYCODE"], "")
-	settings.STBType = resolveValue(settings.STBType, creds["PROVIDER_STB_TYPE"], "")
-	settings.PRMID = resolveValue(settings.PRMID, creds["PROVIDER_PRMID"], "")
-	settings.DRMSupplier = resolveValue(settings.DRMSupplier, creds["PROVIDER_DRM_SUPPLIER"], "")
-	settings.UserAgent = resolveValue(settings.UserAgent, creds["PROVIDER_USER_AGENT"], "")
-	missingProviderValues := []string{}
-	for key, value := range map[string]string{
-		"TOKEN_SERVER":    settings.TokenServer,
-		"PLATFORM_ORIGIN": settings.PlatformOrigin,
-		"EPG_ENTRY":       settings.EPGEntry,
-		"EASIP":           settings.EASIP,
-		"NETWORKID":       settings.NetworkID,
-		"STB_TYPE":        settings.STBType,
-	} {
-		if value == "" || strings.EqualFold(value, "auto") {
-			missingProviderValues = append(missingProviderValues, key)
-		}
-	}
-	if len(missingProviderValues) > 0 {
-		slices.Sort(missingProviderValues)
-		return Report{}, fmt.Errorf("provider metadata missing (%s); recapture credentials or configure the provider environment", strings.Join(missingProviderValues, ", "))
+	settings, err = resolveProviderMetadata(settings, creds)
+	if err != nil {
+		return Report{}, err
 	}
 	if fallback := snapshotEPGHost(settings.SnapshotPath); fallback != "" && fallback != settings.EPGEntry {
 		settings.EPGFallbacks = append(settings.EPGFallbacks, fallback)
 	}
 
 	logger.Printf("[2/3] authenticating and fetching channels from %s", settings.EPGEntry)
-	client, err := portal.New(portal.Config{
-		TokenServer: settings.TokenServer, PlatformOrigin: settings.PlatformOrigin, EPGEntry: settings.EPGEntry,
-		EPGFallbacks: settings.EPGFallbacks, EASIP: settings.EASIP, NetworkID: settings.NetworkID, CityCode: settings.CityCode,
-		UserAgent: settings.UserAgent, BindInterface: settings.BindInterface, BindSourceIP: settings.BindSourceIP, Timeout: settings.ProviderTimeout,
-	})
+	client, err := newProviderClient(settings)
 	if err != nil {
 		return Report{}, err
 	}
-	fetched, err := client.Fetch(ctx, portal.Credentials{
-		UserID: creds["PROVIDER_USER_ID"], STBID: creds["PROVIDER_STBID"], Authenticator: creds["PROVIDER_AUTHENTICATOR"],
-		STBInfo: creds["PROVIDER_STBINFO"], UserToken: creds["PROVIDER_USER_TOKEN"], STBType: settings.STBType,
-		PRMID: settings.PRMID, DRMSupplier: settings.DRMSupplier,
-	})
+	fetched, err := client.Fetch(ctx, providerCredentials(settings, creds))
 	if err != nil {
 		return Report{}, err
 	}
@@ -252,19 +174,21 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 	playlist.SortChannels(channels, settings.SortBy)
 	rows, _, _ := playlist.ChannelsToRows(channels)
 	report := Report{Channels: len(rows), OutputPath: settings.OutputPath, EPGHost: fetched.EPGHost}
-	for _, item := range catchup {
-		if item.Days > 0 {
-			report.Timeshift++
-		}
-	}
-	if settings.EPGCompareSource != "" {
-		if raw, err := reader.Read(ctx, settings.EPGCompareSource); err != nil {
-			logger.Printf("WARNING: EPG matching disabled: %v", err)
-		} else if names, err := playlist.ParseEPG(raw); err != nil {
-			logger.Printf("WARNING: EPG parsing disabled: %v", err)
+	operatorGuide := playlist.OperatorGuide{}
+	if settings.EPGFile != "" || settings.EPGPublicFile != "" {
+		now := time.Now()
+		guide, days, guideErr := refreshOperatorEPG(ctx, client, fetched.EPGHost, creds["PROVIDER_USER_ID"], settings, now)
+		if guideErr != nil {
+			logger.Printf("WARNING: operator EPG refresh failed: %v", guideErr)
+			if cached, recognized, cacheErr := loadOperatorEPG(operatorEPGCachePath(settings), now.Location()); cacheErr == nil && recognized {
+				guide = cached
+				logger.Printf("operator EPG: retaining cached guide (channels=%d programmes=%d)", len(guide.Channels), len(guide.Programmes))
+			}
 		} else {
-			report.EPGMapped, report.NamesReplaced = playlist.AttachEPG(rows, names, settings.EPGReplaceName)
+			logger.Printf("operator EPG: fetched %d day(s), channels=%d programmes=%d", days, len(guide.Channels), len(guide.Programmes))
 		}
+		operatorGuide = guide
+		report.EPGMapped = playlist.AttachOperatorEPG(rows, guide)
 	}
 	groups := map[string]string{}
 	if settings.GroupBy51ZMT {
@@ -306,6 +230,12 @@ func (r Runner) Run(ctx context.Context, settings Settings) (Report, error) {
 		}
 	}
 	catchup = playlist.ConvertCatchup(catchup, settings.R2HCatchupHost, settings.CatchupPlayseek, settings.CatchupSeekOffset, settings.R2HToken)
+	catchup = playlist.ApplyOperatorCatchup(rows, operatorGuide, catchup, settings.ProviderCatchupURL, settings.GuideHistoryDays)
+	for _, item := range catchup {
+		if item.Days > 0 {
+			report.Timeshift++
+		}
+	}
 	renderOptions := playlist.RenderOptions{DisplayNameMode: settings.DisplayNameMode, XTvgURL: settings.XTvgURL, GroupNames: groups, Catchup: catchup, TimeShiftLength: timeshiftLengths, CatchupType: settings.CatchupType}
 	if err := writePlaylist(settings.OutputPath, settings.OutputFormat, rows, renderOptions); err != nil {
 		return Report{}, err

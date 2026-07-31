@@ -305,6 +305,14 @@ func resolveLocalURLs(settings Settings, discovered localServices) Settings {
 	} else if automaticValue(settings.XTvgURL) {
 		settings.XTvgURL = publicFileURL(origin, settings.EPGPublicFile)
 	}
+	if disabledValue(settings.ProviderCatchupURL) {
+		settings.ProviderCatchupURL = ""
+	} else if automaticValue(settings.ProviderCatchupURL) {
+		settings.ProviderCatchupURL = ""
+		if origin != "" {
+			settings.ProviderCatchupURL = strings.TrimRight(origin, "/") + "/iptv/catchup"
+		}
+	}
 	if disabledValue(settings.LocalLogoURLBase) {
 		settings.LocalLogoURLBase = ""
 	} else if automaticValue(settings.LocalLogoURLBase) {
