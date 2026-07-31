@@ -40,6 +40,7 @@ grep -q -- "option capture_schedule_enabled '0'" "$ROOT/openwrt/files/iptv-refre
 grep -q -- "option restart_rtp2httpd_after_capture '0'" "$ROOT/openwrt/files/iptv-refresh.uci"
 grep -q -- "option capture_schedule '30 7 \* \* \*'" "$ROOT/openwrt/files/iptv-refresh.uci"
 grep -q -- '^PROVIDER_TOKEN_SERVER=auto$' "$ROOT/openwrt/files/provider.env"
+grep -q -- '^PROVIDER_CATCHUP_URL=auto$' "$ROOT/openwrt/files/provider.env"
 grep -q -- 'IPKG_INSTROOT="${IPKG_INSTROOT:-}"' "$ROOT/openwrt/files/iptv-refresh-nginx-config"
 grep -q -- 'IPKG_INSTROOT="${IPKG_INSTROOT:-}"' "$ROOT/openwrt/files/iptv-refresh-scheduler"
 grep -q -- '^DEFAULT_ALLOW=127\.0\.0\.1$' "$ROOT/openwrt/files/iptv-refresh-nginx-config"
@@ -161,13 +162,15 @@ fi
 
 locations="$TEST_DIR/iptv-refresh.locations"
 sh "$nginx_helper" render-locations 127.0.0.1 9100 192.0.2.50 2001:db8::/64 > "$locations"
-[ "$(grep -Fc 'allow 192.0.2.50;' "$locations")" -eq 2 ]
-[ "$(grep -Fc 'allow 2001:db8::/64;' "$locations")" -eq 2 ]
+[ "$(grep -Fc 'allow 192.0.2.50;' "$locations")" -eq 3 ]
+[ "$(grep -Fc 'allow 2001:db8::/64;' "$locations")" -eq 3 ]
 grep -Fq 'include /etc/iptv-refresh/nginx.d/*.conf;' "$locations"
 grep -Fq 'proxy_method POST;' "$locations"
 grep -Fq 'proxy_pass_request_body off;' "$locations"
 grep -Fq 'proxy_pass http://127.0.0.1:9100/refresh?;' "$locations"
-if grep -Eq '\$is_args|\$args|iface=' "$locations"; then
+grep -Fq 'location = /iptv/catchup {' "$locations"
+grep -Fq 'proxy_pass http://127.0.0.1:9100/catchup$is_args$args;' "$locations"
+if grep -F 'proxy_pass http://127.0.0.1:9100/refresh' "$locations" | grep -Eq '\$is_args|\$args|iface='; then
 	echo "Generated nginx route preserves legacy query parameters" >&2
 	exit 1
 fi

@@ -17,16 +17,23 @@ var ENV_KEYS = [
 	'LINE_TAG_HD', 'LINE_TAG_SD', 'R2H_BASE_URL', 'R2H_TOKEN',
 	'R2H_IGMP_PATH', 'R2H_ADD_FCC', 'R2H_FCC_TYPE', 'R2H_PROXY_RTSP',
 	'R2H_CATCHUP_HOST', 'CATCHUP_TYPE', 'CATCHUP_PLAYSEEK_TEMPLATE',
-	'CATCHUP_SEEK_OFFSET', 'IGMP_HTTP_PREFIX', 'EPG_URL', 'EPG_URL_FALLBACKS', 'EPG_FILE',
-	'EPG_PUBLIC_FILE', 'EPG_COMPARE_SOURCE', 'EPG_REPLACE_NAME', 'X_TVG_URL',
+	'CATCHUP_SEEK_OFFSET', 'IGMP_HTTP_PREFIX', 'EPG_FILE', 'EPG_PUBLIC_FILE', 'X_TVG_URL',
 	'LOGO_MATCH_SOURCE', 'GITHUB_TOKEN', 'LOGO_URL_BASE', 'LOGO_OVERRIDES_FILE',
 	'LOGO_MATCH_THRESHOLD', 'LOCAL_LOGO_CACHE', 'LOCAL_LOGO_DIR',
 	'LOCAL_LOGO_URL_BASE', 'LOCAL_LOGO_TIMEOUT', 'CAPTURE_TIMEOUT', 'REFRESH_TIMEOUT', 'DUMP_PATH',
 	'PROVIDER_TOKEN_SERVER', 'PROVIDER_PLATFORM_ORIGIN', 'PROVIDER_EPG_ENTRY',
 	'PROVIDER_EPG_ENTRY_FALLBACKS', 'PROVIDER_EASIP', 'PROVIDER_NETWORKID', 'PROVIDER_CITYCODE',
 	'PROVIDER_STB_TYPE', 'PROVIDER_PRMID', 'PROVIDER_DRM_SUPPLIER',
-	'PROVIDER_BIND_INTERFACE', 'PROVIDER_BIND_SOURCE_IP', 'PROVIDER_USER_AGENT', 'PROVIDER_TIMEOUT'
+	'PROVIDER_BIND_INTERFACE', 'PROVIDER_BIND_SOURCE_IP', 'PROVIDER_USER_AGENT', 'PROVIDER_TIMEOUT',
+	'PROVIDER_EPG_TEMPLATE', 'PROVIDER_EPG_HISTORY_DAYS', 'PROVIDER_CATCHUP_URL'
 ];
+
+var REMOVED_ENV_KEYS = {
+	EPG_URL: true,
+	EPG_URL_FALLBACKS: true,
+	EPG_COMPARE_SOURCE: true,
+	EPG_REPLACE_NAME: true
+};
 
 var LEGACY_ENV_KEYS = {
 	HB_TOKEN_SERVER: 'PROVIDER_TOKEN_SERVER',
@@ -68,8 +75,6 @@ var DEFAULTS = {
 	CATCHUP_TYPE: 'shift',
 	CATCHUP_PLAYSEEK_TEMPLATE: '{(b)YmdHMS}-{(e)YmdHMS}',
 	CATCHUP_SEEK_OFFSET: '-900',
-	EPG_URL: 'http://epg.51zmt.top:8000/e1.xml.gz',
-	EPG_URL_FALLBACKS: 'https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml https://raw.githubusercontent.com/fanmingming/live/main/e.xml',
 	EPG_FILE: '/mnt/iptv/iptv-refresh/cache/e1.xml.gz',
 	EPG_PUBLIC_FILE: '/www/iptv_epg/e1.xml.gz',
 	X_TVG_URL: 'auto',
@@ -92,7 +97,10 @@ var DEFAULTS = {
 	PROVIDER_DRM_SUPPLIER: 'auto',
 	PROVIDER_BIND_INTERFACE: 'auto',
 	PROVIDER_USER_AGENT: 'auto',
-	PROVIDER_TIMEOUT: '20'
+	PROVIDER_TIMEOUT: '20',
+	PROVIDER_EPG_TEMPLATE: 'frame226',
+	PROVIDER_EPG_HISTORY_DAYS: '7',
+	PROVIDER_CATCHUP_URL: 'auto'
 };
 
 var callInitAction = rpc.declare({
@@ -128,28 +136,9 @@ function parseEnvironment(text) {
 		if (!Object.prototype.hasOwnProperty.call(values, current) && Object.prototype.hasOwnProperty.call(values, legacy))
 			values[current] = values[legacy];
 	});
-	if (Object.prototype.hasOwnProperty.call(values, 'EPG_URL_FALLBACKS'))
-		values.EPG_URL_FALLBACKS = normalizeEPGFallbacks(values.EPG_URL_FALLBACKS);
 	if (Object.prototype.hasOwnProperty.call(values, 'LOGO_MATCH_SOURCE'))
 		values.LOGO_MATCH_SOURCE = normalizeLogoMatchSource(values.LOGO_MATCH_SOURCE);
 	return values;
-}
-
-function splitURLList(value) {
-	return String(value || '').trim().split(/[\s,;]+/).filter(function(item) { return item !== ''; });
-}
-
-function normalizeEPGFallbacks(value) {
-	var items = splitURLList(value);
-	if (items.length === 1 && items[0].toLowerCase() === 'https://live.fanmingming.cn/e.xml')
-		return DEFAULTS.EPG_URL_FALLBACKS;
-	if (items.length === 2) {
-		var known = {};
-		items.forEach(function(item) { known[item.toLowerCase()] = true; });
-		if (known['https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml'] && known['https://raw.githubusercontent.com/fanmingming/live/main/e.xml'])
-			return DEFAULTS.EPG_URL_FALLBACKS;
-	}
-	return value;
 }
 
 function normalizeLogoMatchSource(value) {
@@ -178,11 +167,14 @@ function updateEnvironment(text, values) {
 	var found = {};
 	ENV_KEYS.forEach(function(key) { known[key] = true; });
 	Object.keys(LEGACY_ENV_KEYS).forEach(function(key) { known[key] = true; });
+	Object.keys(REMOVED_ENV_KEYS).forEach(function(key) { known[key] = true; });
 
 	var lines = String(text || '').replace(/\r\n?/g, '\n').split('\n').map(function(line) {
 		var match = line.match(/^(\s*(?:export\s+)?)([A-Za-z_][A-Za-z0-9_]*)\s*=.*$/);
 		if (!match || !known[match[2]])
 			return line;
+		if (REMOVED_ENV_KEYS[match[2]])
+			return '';
 		var key = LEGACY_ENV_KEYS[match[2]] || match[2];
 		if (found[key])
 			return '';
@@ -314,13 +306,12 @@ return view.extend({
 		addValue(s, 'rtp2httpd', 'CATCHUP_SEEK_OFFSET', _('Catch-up seek offset'), _('Seconds added to the rtp2httpd catch-up request.'), 'integer', '-900');
 		addValue(s, 'rtp2httpd', 'IGMP_HTTP_PREFIX', _('Direct IGMP HTTP prefix'), _('Optional direct HTTP prefix used instead of rtp2httpd URL generation.'));
 
-		addValue(s, 'epg', 'EPG_URL', _('Primary EPG URL'), _('Checked first. A successfully downloaded guide is still skipped when its latest programme has expired.'), null, DEFAULTS.EPG_URL);
-		addValue(s, 'epg', 'EPG_URL_FALLBACKS', _('EPG fallback URLs'), _('Checked in order when the primary guide cannot be downloaded or parsed, or no longer covers the current time. Separate URLs with commas, semicolons, or spaces.'), null, DEFAULTS.EPG_URL_FALLBACKS);
-		addValue(s, 'epg', 'EPG_FILE', _('EPG cache file'), null, null, DEFAULTS.EPG_FILE);
+		addValue(s, 'epg', 'PROVIDER_EPG_TEMPLATE', _('Operator EPG template'), _('Provider portal template used for channel schedules, for example frame226.'), null, DEFAULTS.PROVIDER_EPG_TEMPLATE);
+		addValue(s, 'epg', 'PROVIDER_EPG_HISTORY_DAYS', _('Operator EPG history days'), _('Past schedule days retained in the locally generated XMLTV. The first refresh downloads this history; later refreshes update today only.'), 'range(0,7)', DEFAULTS.PROVIDER_EPG_HISTORY_DAYS);
+		addValue(s, 'epg', 'PROVIDER_CATCHUP_URL', _('Operator catch-up URL'), _('Use auto to publish the programme-level TVOD resolver through the router LAN address, or off to retain only short rolling timeshift.'), null, DEFAULTS.PROVIDER_CATCHUP_URL);
+		addValue(s, 'epg', 'EPG_FILE', _('Operator EPG cache file'), null, null, DEFAULTS.EPG_FILE);
 		addValue(s, 'epg', 'EPG_PUBLIC_FILE', _('Published EPG file'), null, null, DEFAULTS.EPG_PUBLIC_FILE);
 		addValue(s, 'epg', 'X_TVG_URL', _('M3U x-tvg-url'), _('Use auto to publish the EPG file through the router LAN address.'), null, DEFAULTS.X_TVG_URL);
-		addValue(s, 'epg', 'EPG_COMPARE_SOURCE', _('EPG comparison source'), _('Optional local file or URL used for channel-name matching.'));
-		addFlag(s, 'epg', 'EPG_REPLACE_NAME', _('Replace provider names with EPG names'), null, '0');
 		addValue(s, 'epg', 'LOGO_MATCH_SOURCE', _('Logo matching source'), _('M3U, CSV, or GitHub Contents API source used to match channel logos. The default is fanmingming\'s complete TV directory.'), null, DEFAULTS.LOGO_MATCH_SOURCE);
 		o = addValue(s, 'epg', 'GITHUB_TOKEN', _('GitHub token'), _('Optional token used only for HTTPS requests to api.github.com. Authenticated requests receive a higher rate limit.'));
 		o.password = true;

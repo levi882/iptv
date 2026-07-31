@@ -141,7 +141,7 @@ func ChannelsToRows(channels []Channel) ([]Row, map[string]Catchup, map[string]i
 			continue
 		}
 		seen[key] = true
-		rows = append(rows, Row{Name: channel.Name, URL: channel.URL})
+		rows = append(rows, Row{ProviderID: channel.ID, Name: channel.Name, URL: channel.URL})
 		if channel.TimeShiftLength > 0 {
 			lengths[channel.Name] = channel.TimeShiftLength
 		}

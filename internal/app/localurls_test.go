@@ -37,12 +37,13 @@ func TestParseR2HConfig(t *testing.T) {
 
 func TestResolveLocalURLs(t *testing.T) {
 	settings := Settings{
-		EPGPublicFile:    "/www/iptv_epg/e1.xml.gz",
-		LocalLogoDir:     "/www/iptv_logo",
-		R2HBaseURL:       "auto",
-		R2HCatchupHost:   "auto",
-		XTvgURL:          "auto",
-		LocalLogoURLBase: "auto",
+		EPGPublicFile:      "/www/iptv_epg/e1.xml.gz",
+		LocalLogoDir:       "/www/iptv_logo",
+		R2HBaseURL:         "auto",
+		R2HCatchupHost:     "auto",
+		ProviderCatchupURL: "auto",
+		XTvgURL:            "auto",
+		LocalLogoURLBase:   "auto",
 	}
 	got := resolveLocalURLs(settings, localServices{LANHost: "10.1.1.1", R2HPort: "7088", R2HToken: "token-1"})
 	if got.R2HBaseURL != "http://10.1.1.1:7088" || got.R2HCatchupHost != "10.1.1.1:7088" {
@@ -51,17 +52,21 @@ func TestResolveLocalURLs(t *testing.T) {
 	if got.XTvgURL != "http://10.1.1.1/iptv_epg/e1.xml.gz" || got.LocalLogoURLBase != "http://10.1.1.1/iptv_logo" || got.R2HToken != "token-1" {
 		t.Fatalf("automatic published URLs = %#v", got)
 	}
+	if got.ProviderCatchupURL != "http://10.1.1.1/iptv/catchup" {
+		t.Fatalf("automatic operator catch-up URL = %q", got.ProviderCatchupURL)
+	}
 }
 
 func TestResolveLocalURLsPreservesExplicitAndSupportsOff(t *testing.T) {
 	settings := Settings{
-		R2HBaseURL:       "https://media.example.test/r2h",
-		R2HCatchupHost:   "catchup.example.test:8443",
-		XTvgURL:          "off",
-		LocalLogoURLBase: "https://static.example.test/logo",
+		R2HBaseURL:         "https://media.example.test/r2h",
+		R2HCatchupHost:     "catchup.example.test:8443",
+		ProviderCatchupURL: "https://catchup.example.test/operator",
+		XTvgURL:            "off",
+		LocalLogoURLBase:   "https://static.example.test/logo",
 	}
 	got := resolveLocalURLs(settings, localServices{LANHost: "10.1.1.1", R2HPort: "5140"})
-	if got.R2HBaseURL != settings.R2HBaseURL || got.R2HCatchupHost != settings.R2HCatchupHost || got.XTvgURL != "" || got.LocalLogoURLBase != settings.LocalLogoURLBase {
+	if got.R2HBaseURL != settings.R2HBaseURL || got.R2HCatchupHost != settings.R2HCatchupHost || got.ProviderCatchupURL != settings.ProviderCatchupURL || got.XTvgURL != "" || got.LocalLogoURLBase != settings.LocalLogoURLBase {
 		t.Fatalf("explicit URLs were not preserved: %#v", got)
 	}
 }

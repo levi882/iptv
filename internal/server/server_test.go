@@ -15,6 +15,12 @@ import (
 	"iptv/internal/app"
 )
 
+type catchupResolverFunc func(context.Context, string, time.Time, time.Time) (string, error)
+
+func (f catchupResolverFunc) ResolveCatchup(ctx context.Context, channelID string, start, end time.Time) (string, error) {
+	return f(ctx, channelID, start, end)
+}
+
 func TestHandlerAuthAndHealth(t *testing.T) {
 	manager := NewManager(app.Runner{}, app.Settings{})
 	handler := Handler(Config{Token: "secret", AllowedIPs: map[string]bool{"192.0.2.1": true}, Manager: manager})
@@ -194,5 +200,33 @@ func TestPlaylistRequiresTokenAndServesM3U(t *testing.T) {
 	handler.ServeHTTP(recorder, req)
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), "#EXTM3U") {
 		t.Fatalf("playlist response: status=%d body=%q", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestCatchupRequiresAuthAndRedirectsToResolvedStream(t *testing.T) {
+	resolver := catchupResolverFunc(func(_ context.Context, channelID string, start, end time.Time) (string, error) {
+		if channelID != "one" || start.Format("20060102150405") != "20260731010000" || end.Format("20060102150405") != "20260731020000" {
+			t.Fatalf("catch-up request = channel %q, %s-%s", channelID, start, end)
+		}
+		return "http://router.test:5140/rtsp/media.test/HBGD/one?token=test", nil
+	})
+	handler := Handler(Config{
+		Token: "secret", AllowedIPs: map[string]bool{"192.0.2.1": true}, Catchup: resolver,
+	})
+	target := "/catchup?channel=one&start=20260731010000&end=20260731020000"
+	req := httptest.NewRequest(http.MethodGet, target, nil)
+	req.RemoteAddr = "192.0.2.1:1234"
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("unauthorized catch-up status = %d", recorder.Code)
+	}
+	req = httptest.NewRequest(http.MethodGet, target, nil)
+	req.RemoteAddr = "192.0.2.1:1234"
+	req.Header.Set("Authorization", "Bearer secret")
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	if recorder.Code != http.StatusFound || recorder.Header().Get("Location") != "http://router.test:5140/rtsp/media.test/HBGD/one?token=test" {
+		t.Fatalf("catch-up response: status=%d location=%q body=%s", recorder.Code, recorder.Header().Get("Location"), recorder.Body.String())
 	}
 }

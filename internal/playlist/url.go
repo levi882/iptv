@@ -94,6 +94,12 @@ func toR2HRTSP(raw string, p URLSelectParams) string {
 	return appendQuery(base.String(), []queryParam{{"r2h-token", p.R2HToken}})
 }
 
+// ProxyRTSPURL converts a dynamically issued operator RTSP URL into the same
+// rtp2httpd form used by normal playlist streams.
+func ProxyRTSPURL(raw, baseURL, token string) string {
+	return toR2HRTSP(raw, URLSelectParams{R2HBaseURL: baseURL, R2HToken: token})
+}
+
 func pickIGMP(sdp, channelURL, timeshift, fccIP, fccPort string, p URLSelectParams) string {
 	for _, raw := range []string{sdp, channelURL, timeshift} {
 		if strings.HasPrefix(raw, "igmp://") {

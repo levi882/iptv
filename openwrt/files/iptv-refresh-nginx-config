@@ -119,6 +119,20 @@ render_locations_file() {
 		'proxy_set_header Connection "";' \
 		'proxy_http_version 1.1;' \
 		"proxy_pass http://$upstream_host:$listen_port/refresh?;"
+	printf '%s\n' '}' '' 'location = /iptv/catchup {'
+	while IFS= read -r allow; do
+		[ -n "$allow" ] || continue
+		printf '\tallow %s;\n' "$allow"
+	done < "$allow_file"
+	printf '\t%s\n' \
+		'deny all;' \
+		"include $AUTH_INCLUDE;" \
+		'proxy_pass_request_body off;' \
+		'proxy_set_header Content-Length "";' \
+		'proxy_set_header Host $host;' \
+		'proxy_set_header Connection "";' \
+		'proxy_http_version 1.1;' \
+		"proxy_pass http://$upstream_host:$listen_port/catchup\$is_args\$args;"
 	printf '%s\n' '}' '' 'location = /iptv/healthz {'
 	while IFS= read -r allow; do
 		[ -n "$allow" ] || continue

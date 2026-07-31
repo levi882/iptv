@@ -15,31 +15,15 @@ func TestLoadPackagedSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" || settings.EPGURL != "http://epg.51zmt.top:8000/e1.xml.gz" || len(settings.EPGURLFallbacks) != 2 || settings.EPGURLFallbacks[0] != "https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml" || settings.EPGURLFallbacks[1] != "https://raw.githubusercontent.com/fanmingming/live/main/e.xml" || settings.LogoMatchSource != defaultLogoMatchSource || settings.R2HBaseURL != "auto" || settings.XTvgURL != "auto" || settings.LocalLogoURLBase != "auto" {
+	if settings.OutputFormat != "m3u" || settings.Mode != "auto" || settings.R2HIGMPPath != "udp" || !settings.LocalLogoCache || settings.CatchupPlayseek != "{(b)YmdHMS}-{(e)YmdHMS}" || settings.CaptureDump != "" || settings.RefreshTimeout.Seconds() != 300 || settings.STBType != "auto" || settings.UserAgent != "auto" || settings.GuideTemplate != "frame226" || settings.GuideHistoryDays != 7 || settings.ProviderCatchupURL != "auto" || settings.LogoMatchSource != defaultLogoMatchSource || settings.R2HBaseURL != "auto" || settings.XTvgURL != "auto" || settings.LocalLogoURLBase != "auto" {
 		t.Fatalf("packaged config mismatch: %#v", settings)
 	}
 }
 
-func TestMissingEPGFallbackUsesPackagedDefault(t *testing.T) {
+func TestReleasedLogoDefaultIsMigrated(t *testing.T) {
 	dir := t.TempDir()
 	envPath := filepath.Join(dir, "provider.env")
-	if err := os.WriteFile(envPath, []byte("EPG_URL=http://example.test/primary.xml\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	settings, _, err := LoadSettings(dir, envPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(settings.EPGURLFallbacks) != 2 || settings.EPGURLFallbacks[0] != "https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml" || settings.EPGURLFallbacks[1] != "https://raw.githubusercontent.com/fanmingming/live/main/e.xml" {
-		t.Fatalf("EPG fallbacks = %#v", settings.EPGURLFallbacks)
-	}
-}
-
-func TestReleasedEPGAndLogoDefaultsAreMigrated(t *testing.T) {
-	dir := t.TempDir()
-	envPath := filepath.Join(dir, "provider.env")
-	content := "EPG_URL_FALLBACKS=https://live.fanmingming.cn/e.xml\n" +
-		"LOGO_MATCH_SOURCE=https://live.fanmingming.com/tv/m3u/index.m3u\n"
+	content := "LOGO_MATCH_SOURCE=https://live.fanmingming.com/tv/m3u/index.m3u\n"
 	if err := os.WriteFile(envPath, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -47,33 +31,25 @@ func TestReleasedEPGAndLogoDefaultsAreMigrated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(settings.EPGURLFallbacks) != 2 || settings.EPGURLFallbacks[0] != "https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml" {
-		t.Fatalf("EPG fallbacks = %#v", settings.EPGURLFallbacks)
-	}
 	if settings.LogoMatchSource != defaultLogoMatchSource {
 		t.Fatalf("logo source = %q", settings.LogoMatchSource)
 	}
 }
 
-func TestRawThenCDNEPGFallbackIsReordered(t *testing.T) {
-	value := "https://raw.githubusercontent.com/fanmingming/live/main/e.xml https://cdn.jsdelivr.net/gh/fanmingming/live@main/e.xml"
-	if got := normalizeEPGURLFallbacks(value); got != defaultEPGURLFallbacks {
-		t.Fatalf("normalized fallbacks = %q", got)
-	}
-}
-
-func TestExplicitBlankEPGFallbackDisablesDefault(t *testing.T) {
-	dir := t.TempDir()
-	envPath := filepath.Join(dir, "provider.env")
-	if err := os.WriteFile(envPath, []byte("EPG_URL=http://example.test/primary.xml\nEPG_URL_FALLBACKS=\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	settings, _, err := LoadSettings(dir, envPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(settings.EPGURLFallbacks) != 0 {
-		t.Fatalf("EPG fallbacks = %#v, want none", settings.EPGURLFallbacks)
+func TestProviderGuideSettingsAreValidated(t *testing.T) {
+	for _, content := range []string{
+		"PROVIDER_EPG_TEMPLATE=../frame226\n",
+		"PROVIDER_EPG_HISTORY_DAYS=8\n",
+		"PROVIDER_CATCHUP_URL=rtsp://invalid.example.test/replay\n",
+	} {
+		dir := t.TempDir()
+		envPath := filepath.Join(dir, "provider.env")
+		if err := os.WriteFile(envPath, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := LoadSettings(dir, envPath); err == nil {
+			t.Fatalf("invalid provider guide settings accepted: %q", content)
+		}
 	}
 }
 

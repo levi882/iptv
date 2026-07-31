@@ -46,6 +46,7 @@ func ParseChannels(text string, p URLSelectParams, lineRule, lineUHD, lineHD, li
 			}
 		}
 		rows = append(rows, Channel{
+			ID:              strings.TrimSpace(fields["ChannelID"]),
 			Name:            name,
 			URL:             rawURL,
 			UserChannelID:   strings.TrimSpace(fields["UserChannelID"]),

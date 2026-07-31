@@ -12,6 +12,7 @@ type URLSelectParams struct {
 }
 
 type Channel struct {
+	ID              string
 	Name            string
 	URL             string
 	UserChannelID   string
@@ -27,12 +28,13 @@ type Reference struct {
 }
 
 type Row struct {
-	Name    string
-	URL     string
-	EPGID   string
-	EPGName string
-	LogoURL string
-	Ref     *Reference
+	ProviderID string
+	Name       string
+	URL        string
+	EPGID      string
+	EPGName    string
+	LogoURL    string
+	Ref        *Reference
 }
 
 type RenderOptions struct {
