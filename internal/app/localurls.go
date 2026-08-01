@@ -308,10 +308,13 @@ func resolveLocalURLs(settings Settings, discovered localServices) Settings {
 	if disabledValue(settings.ProviderCatchupURL) {
 		settings.ProviderCatchupURL = ""
 	} else if automaticValue(settings.ProviderCatchupURL) {
-		settings.ProviderCatchupURL = ""
-		if origin != "" {
-			settings.ProviderCatchupURL = strings.TrimRight(origin, "/") + "/iptv/catchup"
-		}
+		// The catch-up URL is consumed by rtp2httpd on this router, not by
+		// the playback client directly.  Using the LAN address here makes the
+		// proxy connect back through the router's LAN firewall/hairpin path;
+		// on OpenWrt that can time out even though the LAN listener is healthy.
+		// Loopback also matches the nginx proxy's default allow-list entry and
+		// keeps the API token injection on the local reverse-proxy path.
+		settings.ProviderCatchupURL = "http://127.0.0.1/iptv/catchup"
 	}
 	if disabledValue(settings.LocalLogoURLBase) {
 		settings.LocalLogoURLBase = ""

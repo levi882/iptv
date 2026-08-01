@@ -52,7 +52,7 @@ func TestResolveLocalURLs(t *testing.T) {
 	if got.XTvgURL != "http://10.1.1.1/iptv_epg/e1.xml.gz" || got.LocalLogoURLBase != "http://10.1.1.1/iptv_logo" || got.R2HToken != "token-1" {
 		t.Fatalf("automatic published URLs = %#v", got)
 	}
-	if got.ProviderCatchupURL != "http://10.1.1.1/iptv/catchup" {
+	if got.ProviderCatchupURL != "http://127.0.0.1/iptv/catchup" {
 		t.Fatalf("automatic operator catch-up URL = %q", got.ProviderCatchupURL)
 	}
 }
