@@ -1,12 +1,15 @@
 package portal
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -25,6 +28,8 @@ func TestFetchGuideAuthenticatesAndFetchesChannelsAndDays(t *testing.T) {
 
 	var mu sync.Mutex
 	programmeRequests := map[string]int{}
+	var inFlight atomic.Int32
+	var maxInFlight atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/iptvepg/function/index.jsp":
@@ -43,6 +48,19 @@ func TestFetchGuideAuthenticatesAndFetchesChannelsAndDays(t *testing.T) {
 			}
 			fmt.Fprint(w, `{"totalSize":2,"curPage":1,"totalPage":1,"channelDataList":[{"channelName":"二套","channelID":"two","channelIndex":"2"},{"channelName":"一套","channelID":"one","channelIndex":"1"}]}`)
 		case "/iptvepg/frame226/publicPage/datajsp/prevueList.jsp":
+			if !strings.Contains(r.Referer(), "/iptvepg/frame226/publicPage/channelPlayer/index.jsp?channelIndex=") {
+				http.Error(w, "missing channel player referer", http.StatusBadRequest)
+				return
+			}
+			active := inFlight.Add(1)
+			defer inFlight.Add(-1)
+			for {
+				previous := maxInFlight.Load()
+				if active <= previous || maxInFlight.CompareAndSwap(previous, active) {
+					break
+				}
+			}
+			time.Sleep(5 * time.Millisecond)
 			if cookie, err := r.Cookie("JSESSIONID"); err != nil || cookie.Value != "session" {
 				http.Error(w, "missing portal session", http.StatusForbidden)
 				return
@@ -88,7 +106,7 @@ func TestFetchGuideAuthenticatesAndFetchesChannelsAndDays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	guide, err := client.FetchGuide(context.Background(), portalResult.EPGHost, "user-1", GuideOptions{Template: "frame226", Now: now, Days: 2, Workers: 2})
+	guide, err := client.FetchGuide(context.Background(), portalResult.EPGHost, "user-1", GuideOptions{Template: "frame226", Now: now, Days: 2})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,6 +121,48 @@ func TestFetchGuideAuthenticatesAndFetchesChannelsAndDays(t *testing.T) {
 		if programmeRequests[key] != 1 {
 			t.Fatalf("programme request %s count=%d", key, programmeRequests[key])
 		}
+	}
+	if maxInFlight.Load() != 1 {
+		t.Fatalf("default guide worker concurrency = %d, want 1", maxInFlight.Load())
+	}
+}
+
+func TestGetJSONRetriesEmptyResponseAndDecodesGzip(t *testing.T) {
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch attempts.Add(1) {
+		case 1:
+			_, _ = fmt.Fprint(w, `{"ok":`)
+			return
+		case 2:
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		var body bytes.Buffer
+		writer := gzip.NewWriter(&body)
+		_, _ = writer.Write([]byte(`{"ok":"yes"}`))
+		_ = writer.Close()
+		w.Header().Set("Content-Type", "text/html;charset=UTF-8")
+		w.Header().Set("Content-Encoding", "gzip")
+		_, _ = w.Write(body.Bytes())
+	}))
+	defer server.Close()
+
+	client, err := New(Config{Timeout: 3 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var response struct {
+		OK string `json:"ok"`
+	}
+	if err := client.getJSON(context.Background(), server.URL+"/guide", "", &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.OK != "yes" {
+		t.Fatalf("response = %#v, want ok=yes", response)
+	}
+	if got := attempts.Load(); got != 3 {
+		t.Fatalf("request attempts = %d, want 3", got)
 	}
 }
 

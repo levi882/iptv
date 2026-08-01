@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ func TestOfflineRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 	var portalURL string
+	var operatorGuideFailure atomic.Bool
 	portal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/iptvepg/function/index.jsp":
@@ -48,6 +50,10 @@ func TestOfflineRefresh(t *testing.T) {
 			}
 			fmt.Fprint(w, `{"totalSize":2,"channelDataList":[{"channelName":"CCTV1HD","channelID":"channel-1","channelIndex":"1"},{"channelName":"Demo4K","channelID":"channel-2","channelIndex":"2"}]}`)
 		case "/iptvepg/frame226/publicPage/datajsp/prevueList.jsp":
+			if operatorGuideFailure.Load() {
+				http.Error(w, "temporary guide failure", http.StatusServiceUnavailable)
+				return
+			}
 			date, err := time.Parse("20060102", r.URL.Query().Get("curdate"))
 			if err != nil || r.URL.Query().Get("pageSize") != "999" {
 				http.Error(w, "bad guide request", http.StatusBadRequest)
@@ -120,6 +126,19 @@ func TestOfflineRefresh(t *testing.T) {
 	if publicRaw, err := os.ReadFile(epgPublicFile); err != nil || !bytes.Equal(epgRaw, publicRaw) {
 		t.Fatalf("published EPG mismatch: err=%v cache=%d public=%d", err, len(epgRaw), len(publicRaw))
 	}
+
+	operatorGuideFailure.Store(true)
+	if _, err := runner.Run(context.Background(), settings); err != nil {
+		t.Fatalf("refresh with operator guide failure: %v", err)
+	}
+	fallbackPlaylist, err := os.ReadFile(output)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(fallbackPlaylist), `catchup-source="http://router.test/iptv/catchup?channel=channel-1&start={(b)YmdHMS}&end={(e)YmdHMS}"`) {
+		t.Fatalf("cached operator EPG was not retained after guide failure:\n%s", fallbackPlaylist)
+	}
+	operatorGuideFailure.Store(false)
 
 	settings.SkipCapture = false
 	runner.Capture = func(context.Context, capture.Options) (config.Env, error) {

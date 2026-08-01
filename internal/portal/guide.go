@@ -3,7 +3,9 @@ package portal
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -15,7 +17,12 @@ import (
 	"iptv/internal/redact"
 )
 
-const defaultGuideWorkers = 4
+const (
+	defaultGuideWorkers = 1
+	guideJSONAttempts   = 3
+)
+
+var guideJSONRetryDelays = [...]time.Duration{250 * time.Millisecond, 750 * time.Millisecond}
 
 type GuideOptions struct {
 	Template string
@@ -62,26 +69,81 @@ var (
 )
 
 func (c *Client) getJSON(ctx context.Context, endpoint, referer string, output any) error {
-	req, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
-	if err != nil {
-		return err
+	var lastErr error
+	for attempt := 1; attempt <= guideJSONAttempts; attempt++ {
+		req, err := c.newRequest(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("Accept", "text/xml, text/html, application/xhtml+xml, image/png, text/plain, */*;q=0.8")
+		if referer != "" {
+			req.Header.Set("Referer", referer)
+		}
+
+		status := "request failed"
+		statusCode := 0
+		contentType := ""
+		var raw []byte
+		resp, requestErr := c.http.Do(req)
+		if requestErr == nil {
+			status = resp.Status
+			statusCode = resp.StatusCode
+			contentType = resp.Header.Get("Content-Type")
+			raw, requestErr = readResponse(resp)
+		}
+		if requestErr == nil {
+			if err := json.Unmarshal(raw, output); err != nil {
+				requestErr = fmt.Errorf("decode provider JSON: %w", err)
+			}
+		}
+		if requestErr == nil {
+			return nil
+		}
+
+		lastErr = fmt.Errorf("GET %s attempt=%d/%d status=%s content-type=%q bytes=%d: %w",
+			jsonEndpointPath(endpoint), attempt, guideJSONAttempts, status, contentType, len(raw), requestErr)
+		if attempt == guideJSONAttempts || !retryableJSONError(statusCode, requestErr) {
+			return lastErr
+		}
+		if err := waitGuideJSONRetry(ctx, attempt-1); err != nil {
+			return err
+		}
 	}
-	req.Header.Set("Accept", "text/xml, text/html, application/xhtml+xml, image/png, text/plain, */*;q=0.8")
-	if referer != "" {
-		req.Header.Set("Referer", referer)
+	return lastErr
+}
+
+func jsonEndpointPath(endpoint string) string {
+	parsed, err := url.Parse(endpoint)
+	if err != nil || parsed.Path == "" {
+		return "<invalid endpoint>"
 	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return err
+	return parsed.Path
+}
+
+func retryableJSONError(statusCode int, err error) bool {
+	if statusCode == http.StatusTooManyRequests || statusCode >= http.StatusInternalServerError {
+		return true
 	}
-	raw, err := readResponse(resp)
-	if err != nil {
-		return err
+	if statusCode == 0 && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		return true
 	}
-	if err := json.Unmarshal(raw, output); err != nil {
-		return fmt.Errorf("decode provider JSON: %w", err)
+	var syntaxErr *json.SyntaxError
+	return errors.As(err, &syntaxErr) || errors.Is(err, io.ErrUnexpectedEOF)
+}
+
+func waitGuideJSONRetry(ctx context.Context, retryIndex int) error {
+	delay := guideJSONRetryDelays[len(guideJSONRetryDelays)-1]
+	if retryIndex >= 0 && retryIndex < len(guideJSONRetryDelays) {
+		delay = guideJSONRetryDelays[retryIndex]
 	}
-	return nil
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (c *Client) authorizeGuide(ctx context.Context, host, userID string) error {
@@ -130,6 +192,14 @@ func guideEndpoint(host, template, name string, query url.Values) string {
 		endpoint += "?" + query.Encode()
 	}
 	return endpoint
+}
+
+func guideChannelReferer(host, template string, channel playlist.OperatorChannel) string {
+	referer := strings.TrimRight(host, "/") + "/iptvepg/" + template + "/publicPage/channelPlayer/index.jsp"
+	if channelIndex := strings.TrimSpace(channel.Number); channelIndex != "" {
+		referer += "?channelIndex=" + url.QueryEscape(channelIndex)
+	}
+	return referer
 }
 
 // FetchCatchupURL exchanges the stable programme and channel identifiers from
@@ -197,7 +267,7 @@ func (c *Client) fetchGuideProgrammes(ctx context.Context, host, template, refer
 	}
 	var response guideProgrammeResponse
 	if err := c.getJSON(ctx, guideEndpoint(host, template, "prevueList.jsp", query), referer, &response); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("channel %s date %s: %w", channelID, day.Format("20060102"), err)
 	}
 	programmes := make([]playlist.OperatorProgramme, 0, len(response.ChannelPrevueList))
 	for _, item := range response.ChannelPrevueList {
@@ -247,7 +317,7 @@ func (c *Client) FetchGuide(ctx context.Context, host, userID string, options Gu
 	}
 
 	type job struct {
-		channelID string
+		channel   playlist.OperatorChannel
 		day       time.Time
 		firstDate int
 	}
@@ -268,7 +338,7 @@ func (c *Client) FetchGuide(ctx context.Context, host, userID string, options Gu
 		go func() {
 			defer wait.Done()
 			for item := range jobs {
-				programmes, err := c.fetchGuideProgrammes(workerCtx, host, template, referer, item.channelID, item.day, item.firstDate)
+				programmes, err := c.fetchGuideProgrammes(workerCtx, host, template, guideChannelReferer(host, template, item.channel), item.channel.ID, item.day, item.firstDate)
 				select {
 				case results <- result{programmes: programmes, err: err}:
 				case <-workerCtx.Done():
@@ -286,7 +356,7 @@ func (c *Client) FetchGuide(ctx context.Context, host, userID string, options Gu
 		for _, channel := range channels {
 			for offset := 0; offset < options.Days; offset++ {
 				select {
-				case jobs <- job{channelID: channel.ID, day: dayStart.AddDate(0, 0, -offset), firstDate: 7 - offset}:
+				case jobs <- job{channel: channel, day: dayStart.AddDate(0, 0, -offset), firstDate: 7 - offset}:
 				case <-workerCtx.Done():
 					return
 				}
