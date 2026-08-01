@@ -79,8 +79,10 @@ func wallClockDelta(a, b time.Time) time.Duration {
 func findCatchupProgramme(guide playlist.OperatorGuide, channelID string, start, end, now time.Time) (playlist.OperatorProgramme, error) {
 	const startTolerance = 2 * time.Minute
 	const endTolerance = 5 * time.Minute
-	bestScore := time.Duration(1<<63 - 1)
-	var best playlist.OperatorProgramme
+	bestExactScore := time.Duration(1<<63 - 1)
+	bestStartScore := time.Duration(1<<63 - 1)
+	var bestExact playlist.OperatorProgramme
+	var bestStart playlist.OperatorProgramme
 	for _, programme := range guide.Programmes {
 		if programme.ChannelID != channelID || programme.ID == "" || programme.Stop.After(now.Add(time.Minute)) {
 			continue
@@ -92,6 +94,14 @@ func findCatchupProgramme(guide playlist.OperatorGuide, channelID string, start,
 		if startDelta > startTolerance {
 			continue
 		}
+		// Some players preserve the selected programme start but send a fixed
+		// catch-up window as the end time (for example, start+5h). Keep this
+		// start-anchored candidate as a compatibility fallback. The TVOD URL
+		// returned below still represents this single operator programme.
+		if startDelta < bestStartScore {
+			bestStartScore = startDelta
+			bestStart = programme
+		}
 		endDelta := time.Duration(0)
 		if !end.IsZero() {
 			endDelta = wallClockDelta(programme.Stop, end)
@@ -99,15 +109,18 @@ func findCatchupProgramme(guide playlist.OperatorGuide, channelID string, start,
 				continue
 			}
 		}
-		if score := startDelta + endDelta; score < bestScore {
-			bestScore = score
-			best = programme
+		if score := startDelta + endDelta; score < bestExactScore {
+			bestExactScore = score
+			bestExact = programme
 		}
 	}
-	if best.ID == "" {
-		return playlist.OperatorProgramme{}, ErrOperatorProgrammeNotFound
+	if bestExact.ID != "" {
+		return bestExact, nil
 	}
-	return best, nil
+	if bestStart.ID != "" {
+		return bestStart, nil
+	}
+	return playlist.OperatorProgramme{}, ErrOperatorProgrammeNotFound
 }
 
 func (r *OperatorCatchupResolver) openSession(ctx context.Context) error {
@@ -165,9 +178,12 @@ func (r *OperatorCatchupResolver) resolveURL(ctx context.Context, programme play
 	return proxied, nil
 }
 
-// ResolveCatchup converts an exact XMLTV programme interval into a fresh TVOD
-// URL. One retry rebuilds both portal and secondary-auth sessions, covering the
-// common case where a saved provider cookie expires between playback requests.
+// ResolveCatchup converts a player catch-up request into a fresh TVOD URL. Exact
+// XMLTV programme intervals are preferred; for players that keep the selected
+// programme start but send a broader fixed window, the start-anchored programme
+// is used. One retry rebuilds both portal and secondary-auth sessions, covering
+// the common case where a saved provider cookie expires between playback
+// requests.
 func (r *OperatorCatchupResolver) ResolveCatchup(ctx context.Context, channelID string, start, end time.Time) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
