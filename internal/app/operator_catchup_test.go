@@ -83,6 +83,12 @@ func TestOperatorCatchupResolverUsesCachedProgrammeID(t *testing.T) {
 			t.Fatalf("resolved URL %q does not contain %q", got, want)
 		}
 	}
+	// Some players keep the selected programme start but send a fixed
+	// catch-up window as the end time. The resolver should still select the
+	// programme anchored at start instead of returning not found.
+	if _, err := resolver.ResolveCatchup(context.Background(), "one", start, start.Add(5*time.Hour)); err != nil {
+		t.Fatalf("start-anchored programme with broad player window: %v", err)
+	}
 	if _, err := resolver.ResolveCatchup(context.Background(), "one", start.Add(-time.Hour), stop.Add(-time.Hour)); err != ErrOperatorProgrammeNotFound {
 		t.Fatalf("missing programme error = %v", err)
 	}
