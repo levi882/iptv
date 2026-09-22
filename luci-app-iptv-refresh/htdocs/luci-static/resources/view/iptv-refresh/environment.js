@@ -228,7 +228,6 @@ return view.extend({
 
 		var m = new form.JSONMap({ env: env }, _('IPTV Refresh environment'), _('Structured editor for playlist, rtp2httpd, EPG, logo, catch-up, and provider options. Unknown variables and comments in the provider environment file are preserved.'));
 		m.readonly = !L.hasViewPermission();
-		m.tabbed = true;
 		var s = m.section(form.NamedSection, 'env', 'env');
 		s.anonymous = true;
 		s.addremove = false;
