@@ -101,7 +101,7 @@ var patterns = map[string]*regexp.Regexp{
 	"PROVIDER_AUTHENTICATOR":   regexp.MustCompile(`(?i)Authenticator=([0-9a-f]+)`),
 	"PROVIDER_STBID":           regexp.MustCompile(`(?i)STBID=([0-9a-f]+)`),
 	"PROVIDER_STBINFO":         regexp.MustCompile(`(?i)stbinfo=([0-9a-f]+)`),
-	"PROVIDER_USER_TOKEN":      regexp.MustCompile(`UserToken=([_A-Za-z0-9-]+)`),
+	"PROVIDER_USER_TOKEN":      regexp.MustCompile(`UserToken=([^&\s"'<>;]+)`),
 	"PROVIDER_STB_TYPE":        regexp.MustCompile(`(?i)stbtype=([^&\s]+)`),
 	"PROVIDER_PRMID":           regexp.MustCompile(`(?i)prmid=([^&\s]*)`),
 	"PROVIDER_DRM_SUPPLIER":    regexp.MustCompile(`(?i)drmsupplier=([^&\s]*)`),
@@ -113,8 +113,8 @@ var patterns = map[string]*regexp.Regexp{
 	"PROVIDER_USER_AGENT":      regexp.MustCompile(`(?im)^User-Agent:[ \t]*([^\r\n]+)`),
 }
 
-var configTokenPattern = regexp.MustCompile(`CTCSetConfig\('UserToken','([_A-Za-z0-9-]+)'`)
-var channelTokenPattern = regexp.MustCompile(`GetChannelList\?UserToken=([_A-Za-z0-9-]+)`)
+var configTokenPattern = regexp.MustCompile(`CTCSetConfig\('UserToken','([^']+)'`)
+var channelTokenPattern = regexp.MustCompile(`GetChannelList\?UserToken=([^&\s"'<>;]+)`)
 var tokenServerPattern = regexp.MustCompile(`(?i)(?:Host:\s*|https?://)([A-Za-z0-9.-]+):4338`)
 
 func lastMatch(re *regexp.Regexp, raw []byte) string {
@@ -161,11 +161,16 @@ func Parse(raw []byte, fallback config.Env, tokenHost string) config.Env {
 	out["PROVIDER_AUTHENTICATOR"] = strings.ToUpper(out["PROVIDER_AUTHENTICATOR"])
 	out["PROVIDER_STBID"] = strings.ToUpper(out["PROVIDER_STBID"])
 	out["PROVIDER_STBINFO"] = strings.ToUpper(out["PROVIDER_STBINFO"])
+	// EAS tokens can include an IP suffix (token@address). Decode percent
+	// escapes without changing literal plus signs from cookies or JavaScript.
+	if decoded, err := url.PathUnescape(out["PROVIDER_USER_TOKEN"]); err == nil {
+		out["PROVIDER_USER_TOKEN"] = decoded
+	}
 	out["PROVIDER_USER_TOKEN"] = strings.Map(func(r rune) rune {
-		if r == '_' || r == '-' || r >= '0' && r <= '9' || r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' {
-			return r
+		if r == '\r' || r == '\n' || r == 0 {
+			return -1
 		}
-		return -1
+		return r
 	}, out["PROVIDER_USER_TOKEN"])
 	if capturedTokenHost := lastMatch(tokenServerPattern, raw); capturedTokenHost != "" {
 		tokenHost = capturedTokenHost
